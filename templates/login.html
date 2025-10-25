@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Face Auth Document Locker{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Login</h2>
+        
+        <div class="login-steps">
+            <div class="step step-1 active">
+                <h3>Step 1: Enter Username</h3>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="startFaceVerification()">Next</button>
+            </div>
+            
+            <div class="step step-2">
+                <h3>Step 2: Face Verification</h3>
+                <div class="camera-container">
+                    <video id="video" autoplay></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="captureAndVerifyFace()">Verify Face</button>
+                <div id="face-status" class="status-message"></div>
+            </div>
+            
+            <div class="step step-3">
+                <h3>Step 3: Enter PIN</h3>
+                <div class="form-group">
+                    <label for="pin">4-Digit PIN:</label>
+                    <input type="password" id="pin" pattern="\d{4}" maxlength="4" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="verifyPin()">Login</button>
+                <div id="pin-status" class="status-message"></div>
+            </div>
+        </div>
+        
+        <p class="auth-link">
+            Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentStep = 1;
+let stream;
+
+function showStep(step) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.step-${step}`).classList.add('active');
+    currentStep = step;
+}
+
+function startFaceVerification() {
+    const username = document.getElementById('username').value;
+    if (!username) {
+        alert('Please enter username');
+        return;
+    }
+    
+    showStep(2);
+    startCamera();
+}
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(mediaStream) {
+            stream = mediaStream;
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+        })
+        .catch(function(error) {
+            console.error('Camera error:', error);
+            alert('Camera access denied or not available');
+        });
+}
+
+function captureAndVerifyFace() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    const imageData = canvas.toDataURL('image/jpeg');
+    const username = document.getElementById('username').value;
+    
+    fetch('/verify_face', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            image: imageData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const statusEl = document.getElementById('face-status');
+        if (data.success) {
+            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            stopCamera();
+            showStep(3);
+        } else {
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('face-status').innerHTML = '<span class="error">❌ Verification failed</span>';
+    });
+}
+
+function verifyPin() {
+    const pin = document.getElementById('pin').value;
+    const username = document.getElementById('username').value;
+    
+    if (pin.length !== 4) {
+        alert('Please enter a 4-digit PIN');
+        return;
+    }
+    
+    fetch('/verify_pin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            pin: pin
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const statusEl = document.getElementById('pin-status');
+        if (data.success) {
+            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 1000);
+        } else {
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('pin-status').innerHTML = '<span class="error">❌ Login failed</span>';
+    });
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+}
+</script>
+{% endblock %}

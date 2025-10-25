@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Face Auth Document Locker{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Create Account</h2>
+        
+        <div class="signup-steps">
+            <div class="step step-1 active">
+                <h3>Step 1: Basic Information</h3>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="pin">4-Digit PIN:</label>
+                    <input type="password" id="pin" name="pin" pattern="\d{4}" maxlength="4" required>
+                    <small>Enter a 4-digit PIN for additional security</small>
+                </div>
+                
+                <button type="button" class="btn btn-primary" onclick="startFaceCapture()">Next: Face Training</button>
+            </div>
+            
+            <div class="step step-2">
+                <h3>Step 2: Face Training</h3>
+                <p>We'll capture 50 images of your face for better recognition accuracy.</p>
+                <p><strong>Note:</strong> The system continues even if face detection fails on some images.</p>
+                
+                <div class="camera-container">
+                    <video id="video" autoplay></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                
+                <div class="capture-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p id="capture-status">Click "Start Capture" to begin face training</p>
+                    <p id="capture-count">Images captured: <span id="count">0</span>/50</p>
+                    <small>💡 The system will continue even if some images fail face detection</small>
+                </div>
+                
+                <div class="capture-controls">
+                    <button type="button" class="btn btn-primary" id="start-capture" onclick="startCapturing()">Start Capture</button>
+                    <button type="button" class="btn btn-secondary" id="stop-capture" onclick="stopCapturing()" style="display: none;">Stop Capture</button>
+                </div>
+                
+                <div id="face-status" class="status-message"></div>
+                
+                <button type="button" class="btn btn-primary" id="complete-registration" onclick="completeRegistration()" style="display: none;">Complete Registration</button>
+            </div>
+        </div>
+        
+        <p class="auth-link">
+            Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentStep = 1;
+let stream;
+let captureInterval;
+let capturedImages = [];
+let isCapturing = false;
+
+function showStep(step) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.querySelector(`.step-${step}`).classList.add('active');
+    currentStep = step;
+}
+
+function startFaceCapture() {
+    const username = document.getElementById('username').value;
+    const email = document.getElementById('email').value;
+    const pin = document.getElementById('pin').value;
+    
+    if (!username || !email || !pin || pin.length !== 4) {
+        alert('Please fill in all fields correctly');
+        return;
+    }
+    
+    showStep(2);
+    startCamera();
+}
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ 
+        video: { 
+            width: 640, 
+            height: 480,
+            facingMode: 'user'
+        } 
+    })
+    .then(function(mediaStream) {
+        stream = mediaStream;
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        document.getElementById('capture-status').textContent = 'Camera ready! Click "Start Capture" to begin';
+    })
+    .catch(function(error) {
+        console.error('Camera error:', error);
+        alert('Camera access denied or not available');
+    });
+}
+
+function startCapturing() {
+    if (isCapturing) return;
+    
+    isCapturing = true;
+    capturedImages = [];
+    
+    document.getElementById('start-capture').style.display = 'none';
+    document.getElementById('stop-capture').style.display = 'inline-block';
+    document.getElementById('capture-status').textContent = 'Capturing images... Please move your head slightly for variety';
+    
+    captureInterval = setInterval(() => {
+        if (capturedImages.length < 50) {
+            captureImage();
+        } else {
+            stopCapturing();
+            if (capturedImages.length >= 5) {
+                document.getElementById('complete-registration').style.display = 'inline-block';
+                document.getElementById('capture-status').textContent = `Face training complete! ${capturedImages.length} images captured. Click "Complete Registration"`;
+            } else {
+                document.getElementById('capture-status').textContent = 'Not enough images captured. Please try again.';
+                document.getElementById('start-capture').style.display = 'inline-block';
+            }
+        }
+    }, 200); // Capture every 200ms
+}
+
+function stopCapturing() {
+    isCapturing = false;
+    if (captureInterval) {
+        clearInterval(captureInterval);
+    }
+    
+    document.getElementById('start-capture').style.display = 'inline-block';
+    document.getElementById('stop-capture').style.display = 'none';
+    
+    if (capturedImages.length < 50) {
+        document.getElementById('capture-status').textContent = `Capture stopped. ${capturedImages.length} images captured.`;
+    }
+}
+
+function captureImage() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    capturedImages.push(imageData);
+    
+    // Update progress
+    const count = capturedImages.length;
+    document.getElementById('count').textContent = count;
+    document.getElementById('progress-fill').style.width = (count / 50) * 100 + '%';
+    
+    // Add visual feedback
+    canvas.style.display = 'block';
+    setTimeout(() => {
+        canvas.style.display = 'none';
+    }, 100);
+}
+
+function completeRegistration() {
+    if (capturedImages.length < 5) {
+        alert('Please capture at least 5 images for registration');
+        return;
+    }
+    
+    const username = document.getElementById('username').value;
+    const email = document.getElementById('email').value;
+    const pin = document.getElementById('pin').value;
+    
+    document.getElementById('face-status').innerHTML = '<span class="info">Processing registration... This may take a moment.</span>';
+    
+    fetch('/signup_with_training', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            username: username,
+            email: email,
+            pin: pin,
+            face_images: capturedImages
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const statusEl = document.getElementById('face-status');
+        if (data.success) {
+            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            stopCamera();
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        } else {
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('face-status').innerHTML = '<span class="error">❌ Registration failed. Please try again.</span>';
+    });
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+}
+</script>
+{% endblock %}

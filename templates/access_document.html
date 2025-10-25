@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Access Document - Face Auth Document Locker{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Document Access Verification</h2>
+        <p>Please verify your identity to access this document</p>
+        
+        <div class="verification-steps">
+            <div class="step">
+                <h3>Face Verification</h3>
+                <div class="camera-container">
+                    <video id="video" autoplay></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="startCamera()">Start Camera</button>
+            </div>
+            
+            <div class="step">
+                <h3>PIN Verification</h3>
+                <div class="form-group">
+                    <label for="access_pin">4-Digit PIN:</label>
+                    <input type="password" id="access_pin" pattern="\d{4}" maxlength="4" required>
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-primary" onclick="verifyAccess()">Verify & Access Document</button>
+            <div id="access-status" class="status-message"></div>
+        </div>
+        
+        <p class="auth-link">
+            <a href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let stream;
+const docId = {{ doc_id }};
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(mediaStream) {
+            stream = mediaStream;
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+        })
+        .catch(function(error) {
+            console.error('Camera error:', error);
+            alert('Camera access denied or not available');
+        });
+}
+
+function verifyAccess() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const pin = document.getElementById('access_pin').value;
+    
+    if (!stream) {
+        alert('Please start camera first');
+        return;
+    }
+    
+    if (pin.length !== 4) {
+        alert('Please enter a 4-digit PIN');
+        return;
+    }
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    
+    const imageData = canvas.toDataURL('image/jpeg');
+    
+    fetch('/verify_document_access', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            doc_id: docId,
+            image: imageData,
+            pin: pin
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const statusEl = document.getElementById('access-status');
+        if (data.success) {
+            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            stopCamera();
+            setTimeout(() => {
+                window.open(data.download_url, '_blank');
+            }, 1000);
+        } else {
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('access-status').innerHTML = '<span class="error">❌ Access verification failed</span>';
+    });
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+}
+
+// Start camera automatically when page loads
+window.onload = function() {
+    startCamera();
+};
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Face Auth Document Locker{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-content">
+        <h1>🔐 Secure Document Locker</h1>
+        <p>Protect your documents with advanced facial recognition and PIN authentication</p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('signup') }}" class="btn btn-primary">Get Started</a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary">Login</a>
+        </div>
+    </div>
+</div>
+
+<div class="features-section">
+    <div class="container">
+        <h2>Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">👤</div>
+                <h3>Face Recognition</h3>
+                <p>Advanced AI-powered facial recognition using DeepFace technology</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔢</div>
+                <h3>PIN Security</h3>
+                <p>Additional security layer with encrypted PIN verification</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📁</div>
+                <h3>Secure Storage</h3>
+                <p>Your documents are stored securely and only accessible by you</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Face Auth Document Locker{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h2>Welcome, {{ session.username }}!</h2>
+        <p>Manage your secure documents</p>
+    </div>
+    
+    <div class="upload-section">
+        <h3>Upload New Document</h3>
+        <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="document">Select Document:</label>
+                <input type="file" id="document" name="document" accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.gif" required>
+                <small>Supported formats: PDF, DOCX, DOC, TXT, PNG, JPG, JPEG, GIF (Max: 16MB)</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload Document</button>
+        </form>
+    </div>
+    
+    <div class="documents-section">
+        <h3>Your Documents</h3>
+        {% if documents %}
+            <div class="documents-grid">
+                {% for doc in documents %}
+                <div class="document-card">
+                    <div class="document-icon">📄</div>
+                    <div class="document-info">
+                        <h4>{{ doc[3] }}</h4>
+                        <p>Uploaded: {{ doc[5] }}</p>
+                    </div>
+                    <div class="document-actions">
+                        <a href="{{ url_for('access_document', doc_id=doc[0]) }}" class="btn btn-small">Access</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No documents uploaded yet. Upload your first document above.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
