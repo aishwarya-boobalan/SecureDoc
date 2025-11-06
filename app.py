@@ -75,12 +75,29 @@ def verify_pin(pin, hashed):
     return bcrypt.checkpw(pin.encode('utf-8'), hashed)
 
 def get_face_embedding(image_path):
-    """Get face embedding using DeepFace with ArcFace backend (similar to Streamlit app)"""
+    """Get face embedding using DeepFace with ArcFace backend - strict face detection"""
+    try:
+        # Use enforce_detection=True for training to ensure face is detected
+        # This gives better quality embeddings
+        embedding_obj = DeepFace.represent(
+            img_path=image_path, 
+            model_name="ArcFace", 
+            enforce_detection=True,  # Strict detection for better accuracy
+            detector_backend='opencv'  # Use opencv for better detection
+        )
+        return embedding_obj[0]["embedding"]
+    except Exception as e:
+        print(f"Face not detected or error in {image_path}: {e}")
+        return None
+
+def get_face_embedding_lenient(image_path):
+    """Get face embedding with lenient detection for verification (backup)"""
     try:
         embedding_obj = DeepFace.represent(
             img_path=image_path, 
             model_name="ArcFace", 
-            enforce_detection=False  # Key improvement - don't fail if face not detected
+            enforce_detection=False,
+            detector_backend='opencv'
         )
         return embedding_obj[0]["embedding"]
     except Exception as e:
@@ -148,7 +165,7 @@ def save_face_encoding(username, image_paths):
         return None
 
 def save_face_training_from_base64(username, base64_images):
-    """Save multiple face training images from base64 data"""
+    """Save multiple face training images from base64 data with strict quality control"""
     try:
         user_face_dir = os.path.join(FACE_DB_PATH, username)
         os.makedirs(user_face_dir, exist_ok=True)
@@ -171,22 +188,33 @@ def save_face_training_from_base64(username, base64_images):
                     f.write(image_bytes)
                 temp_paths.append(temp_path)
                 
-                # Get embedding (won't fail even if face not perfectly detected)
+                # Get embedding with STRICT detection (face must be clearly visible)
                 embedding = get_face_embedding(temp_path)
                 if embedding is not None:
-                    # Save to permanent location
-                    permanent_path = os.path.join(user_face_dir, f'training_{i}.jpg')
-                    img = cv2.imread(temp_path)
-                    cv2.imwrite(permanent_path, img)
+                    # Additional quality check: ensure embedding is not too similar to existing ones
+                    # This prevents duplicate/poor quality images
+                    is_unique = True
+                    for existing_emb in valid_embeddings:
+                        similarity = cosine_similarity(embedding, existing_emb)
+                        if similarity > 0.95:  # Too similar to existing image
+                            is_unique = False
+                            print(f"Image {i+1} too similar to existing training image, skipping")
+                            break
                     
-                    valid_embeddings.append(embedding)
-                    valid_images.append(permanent_path)
-                    print(f"Successfully processed image {i+1}/{len(base64_images)}")
+                    if is_unique:
+                        # Save to permanent location
+                        permanent_path = os.path.join(user_face_dir, f'training_{len(valid_embeddings)}.jpg')
+                        img = cv2.imread(temp_path)
+                        cv2.imwrite(permanent_path, img)
+                        
+                        valid_embeddings.append(embedding)
+                        valid_images.append(permanent_path)
+                        print(f"Successfully processed image {i+1}/{len(base64_images)} (Valid: {len(valid_embeddings)})")
                 else:
-                    print(f"Could not get embedding for image {i+1}, but continuing...")
+                    print(f"No clear face detected in image {i+1}, skipping...")
                     
             except Exception as e:
-                print(f"Error processing image {i}: {e}, but continuing...")
+                print(f"Error processing image {i}: {e}, continuing...")
         
         # Clean up temporary files
         for temp_path in temp_paths:
@@ -195,8 +223,9 @@ def save_face_training_from_base64(username, base64_images):
             except:
                 pass
         
-        if len(valid_embeddings) < 3:  # Need at least 3 valid embeddings
-            print(f"Only {len(valid_embeddings)} valid embeddings found, need at least 3")
+        # Require at least 5 high-quality embeddings for robust recognition
+        if len(valid_embeddings) < 5:
+            print(f"Only {len(valid_embeddings)} valid embeddings found, need at least 5")
             # Clean up saved images if not enough valid ones
             for img_path in valid_images:
                 try:
@@ -215,7 +244,7 @@ def save_face_training_from_base64(username, base64_images):
         if valid_images:
             shutil.copy2(valid_images[0], reference_path)
             
-        print(f"Successfully saved {len(valid_embeddings)} embeddings for {username}")
+        print(f"Successfully saved {len(valid_embeddings)} high-quality embeddings for {username}")
         return reference_path
             
     except Exception as e:
@@ -223,7 +252,7 @@ def save_face_training_from_base64(username, base64_images):
         return None
 
 def verify_face(username, captured_image_path):
-    """Verify face using DeepFace with embeddings and cosine similarity (like Streamlit app)"""
+    """Verify face using DeepFace with STRICT cosine similarity threshold"""
     try:
         user_face_dir = os.path.join(FACE_DB_PATH, username)
         embeddings_file = os.path.join(user_face_dir, 'embeddings.json')
@@ -240,8 +269,16 @@ def verify_face(username, captured_image_path):
             print(f"No stored embeddings for {username}")
             return False
         
-        # Get embedding for captured image
+        # Get embedding for captured image with STRICT detection
         test_embedding = get_face_embedding(captured_image_path)
+        
+        # If strict detection fails, try lenient (but will require higher threshold)
+        use_strict = True
+        if test_embedding is None:
+            print("Strict detection failed, trying lenient detection...")
+            test_embedding = get_face_embedding_lenient(captured_image_path)
+            use_strict = False
+            
         if test_embedding is None:
             print("Could not get embedding from captured image")
             return False
@@ -252,13 +289,36 @@ def verify_face(username, captured_image_path):
             similarity = cosine_similarity(test_embedding, stored_embedding)
             similarities.append(similarity)
         
-        # Get best match
-        best_similarity = max(similarities) if similarities else 0.0
-        print(f"Best similarity score for {username}: {best_similarity:.3f}")
+        # Get best match and average of top 3 matches
+        similarities.sort(reverse=True)
+        best_similarity = similarities[0] if similarities else 0.0
         
-        # Use threshold similar to Streamlit app (0.35)
-        threshold = 0.35
-        return best_similarity > threshold
+        # Use top 3 average for more robust verification
+        top_3_avg = sum(similarities[:3]) / min(3, len(similarities)) if similarities else 0.0
+        
+        print(f"Verification for {username}:")
+        print(f"  Best match: {best_similarity:.4f}")
+        print(f"  Top 3 average: {top_3_avg:.4f}")
+        print(f"  Detection mode: {'Strict' if use_strict else 'Lenient'}")
+        
+        # STRICT thresholds for accurate face recognition
+        if use_strict:
+            # Strict detection requires: best match > 0.50 AND top 3 avg > 0.45
+            threshold_best = 0.50  # Much stricter than 0.35
+            threshold_avg = 0.45
+            verified = best_similarity > threshold_best and top_3_avg > threshold_avg
+        else:
+            # Lenient detection requires even higher thresholds
+            threshold_best = 0.60
+            threshold_avg = 0.55
+            verified = best_similarity > threshold_best and top_3_avg > threshold_avg
+        
+        if verified:
+            print(f"✅ Face VERIFIED for {username}")
+        else:
+            print(f"❌ Face REJECTED for {username} (thresholds not met)")
+            
+        return verified
         
     except Exception as e:
         print(f"Face verification error: {e}")
@@ -314,7 +374,7 @@ def signup_with_training():
         if get_user_by_username(username):
             return jsonify({'success': False, 'message': 'Username already exists!'})
         
-        # Save face training images
+        # Save face training images with strict quality control
         face_path = save_face_training_from_base64(username, face_images)
         
         if face_path:
@@ -336,7 +396,7 @@ def signup_with_training():
             finally:
                 conn.close()
         else:
-            return jsonify({'success': False, 'message': 'Face training failed. Please ensure your face is clearly visible in the images.'})
+            return jsonify({'success': False, 'message': 'Face training failed. Not enough clear face images detected. Please ensure your face is well-lit and directly facing the camera. Try again with better lighting.'})
             
     except Exception as e:
         print(f"Signup error: {e}")

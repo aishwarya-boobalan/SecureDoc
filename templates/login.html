@@ -19,6 +19,7 @@
             
             <div class="step step-2">
                 <h3>Step 2: Face Verification</h3>
+                <p><strong>⚠️ Important:</strong> Ensure good lighting and look directly at the camera</p>
                 <div class="camera-container">
                     <video id="video" autoplay></video>
                     <canvas id="canvas" style="display: none;"></canvas>
@@ -89,8 +90,12 @@ function captureAndVerifyFace() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
     
-    const imageData = canvas.toDataURL('image/jpeg');
+    // Use high quality image for accurate verification
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
     const username = document.getElementById('username').value;
+    
+    const statusEl = document.getElementById('face-status');
+    statusEl.innerHTML = '<span class="info">🔍 Verifying face... Please wait...</span>';
     
     fetch('/verify_face', {
         method: 'POST',
@@ -104,18 +109,17 @@ function captureAndVerifyFace() {
     })
     .then(response => response.json())
     .then(data => {
-        const statusEl = document.getElementById('face-status');
         if (data.success) {
             statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
             stopCamera();
             showStep(3);
         } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + ' Please ensure good lighting and try again.</span>';
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        document.getElementById('face-status').innerHTML = '<span class="error">❌ Verification failed</span>';
+        statusEl.innerHTML = '<span class="error">❌ Verification failed. Please try again.</span>';
     });
 }
 

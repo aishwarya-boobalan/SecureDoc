@@ -31,8 +31,16 @@
             
             <div class="step step-2">
                 <h3>Step 2: Face Training</h3>
-                <p>We'll capture 50 images of your face for better recognition accuracy.</p>
-                <p><strong>Note:</strong> The system continues even if face detection fails on some images.</p>
+                <p>📸 We'll capture 50 images of your face for accurate recognition.</p>
+                <p><strong>⚠️ Important Tips:</strong></p>
+                <ul style="text-align: left; margin: 1rem 0;">
+                    <li>✅ Ensure good lighting (face the light source)</li>
+                    <li>✅ Look directly at the camera</li>
+                    <li>✅ Keep your face centered in the frame</li>
+                    <li>✅ Move your head slightly during capture (different angles)</li>
+                    <li>✅ Maintain neutral expression</li>
+                    <li>❌ Avoid wearing sunglasses or face masks</li>
+                </ul>
                 
                 <div class="camera-container">
                     <video id="video" autoplay></video>
@@ -44,8 +52,8 @@
                         <div class="progress-fill" id="progress-fill"></div>
                     </div>
                     <p id="capture-status">Click "Start Capture" to begin face training</p>
-                    <p id="capture-count">Images captured: <span id="count">0</span>/50</p>
-                    <small>💡 The system will continue even if some images fail face detection</small>
+                    <p id="capture-count">Valid faces captured: <span id="count">0</span>/50</p>
+                    <small>💡 Only clear face images are saved for maximum accuracy</small>
                 </div>
                 
                 <div class="capture-controls">
@@ -122,7 +130,7 @@ function startCapturing() {
     
     document.getElementById('start-capture').style.display = 'none';
     document.getElementById('stop-capture').style.display = 'inline-block';
-    document.getElementById('capture-status').textContent = 'Capturing images... Please move your head slightly for variety';
+    document.getElementById('capture-status').textContent = '📸 Capturing... Please move your head slightly (left, right, up, down)';
     
     captureInterval = setInterval(() => {
         if (capturedImages.length < 50) {
@@ -131,13 +139,13 @@ function startCapturing() {
             stopCapturing();
             if (capturedImages.length >= 5) {
                 document.getElementById('complete-registration').style.display = 'inline-block';
-                document.getElementById('capture-status').textContent = `Face training complete! ${capturedImages.length} images captured. Click "Complete Registration"`;
+                document.getElementById('capture-status').textContent = `✅ Capture complete! ${capturedImages.length} images ready. Click "Complete Registration"`;
             } else {
-                document.getElementById('capture-status').textContent = 'Not enough images captured. Please try again.';
+                document.getElementById('capture-status').textContent = '⚠️ Not enough images captured. Please ensure good lighting and try again.';
                 document.getElementById('start-capture').style.display = 'inline-block';
             }
         }
-    }, 200); // Capture every 200ms
+    }, 300); // Capture every 300ms (slower for better quality)
 }
 
 function stopCapturing() {
@@ -163,7 +171,8 @@ function captureImage() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
     
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    // Use higher quality for better face recognition
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
     capturedImages.push(imageData);
     
     // Update progress
