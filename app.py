@@ -31,11 +31,29 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(FACE_DB_PATH, exist_ok=True)
 os.makedirs('static/temp', exist_ok=True)
 
+def generate_unique_member_id():
+    """Generate a unique 6-digit member ID"""
+    import random
+    while True:
+        # Generate 6-digit number
+        member_id = f"{random.randint(100000, 999999)}"
+        
+        # Check if it already exists
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM users WHERE unique_member_id = ?', (member_id,))
+        exists = cursor.fetchone()
+        conn.close()
+        
+        if not exists:
+            return member_id
+
 def init_db():
     """Initialize SQLite database"""
     conn = sqlite3.connect('users.db')
     cursor = conn.cursor()
     
+    # Create users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +65,34 @@ def init_db():
         )
     ''')
     
+    # Check if unique_member_id column exists, if not add it
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'unique_member_id' not in columns:
+        print("Adding unique_member_id column to users table...")
+        # Add column without UNIQUE constraint first
+        cursor.execute('ALTER TABLE users ADD COLUMN unique_member_id TEXT')
+        
+        # Generate unique member IDs for existing users
+        cursor.execute('SELECT id FROM users WHERE unique_member_id IS NULL')
+        users_without_id = cursor.fetchall()
+        
+        for user in users_without_id:
+            member_id = generate_unique_member_id()
+            cursor.execute('UPDATE users SET unique_member_id = ? WHERE id = ?', 
+                          (member_id, user[0]))
+        
+        # Now create a unique index
+        try:
+            cursor.execute('CREATE UNIQUE INDEX idx_unique_member_id ON users(unique_member_id)')
+            print(f"Generated member IDs for {len(users_without_id)} existing users and created unique index")
+        except sqlite3.OperationalError as e:
+            if "already exists" not in str(e):
+                print(f"Index creation warning: {e}")
+            else:
+                print(f"Generated member IDs for {len(users_without_id)} existing users")
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,6 +102,20 @@ def init_db():
             file_path TEXT NOT NULL,
             upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shared_documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id INTEGER,
+            owner_id INTEGER,
+            shared_with_id INTEGER,
+            shared_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'pending',
+            FOREIGN KEY (document_id) REFERENCES documents (id),
+            FOREIGN KEY (owner_id) REFERENCES users (id),
+            FOREIGN KEY (shared_with_id) REFERENCES users (id)
         )
     ''')
     
@@ -73,6 +133,8 @@ def hash_pin(pin):
 def verify_pin(pin, hashed):
     """Verify PIN against hash"""
     return bcrypt.checkpw(pin.encode('utf-8'), hashed)
+
+
 
 def get_face_embedding(image_path):
     """Get face embedding using DeepFace with ArcFace backend - strict face detection"""
@@ -342,6 +404,54 @@ def get_user_documents(user_id):
     conn.close()
     return documents
 
+def get_user_by_member_id(member_id):
+    """Get user by unique member ID"""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE unique_member_id = ?', (member_id,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def get_shared_documents_for_user(user_id):
+    """Get documents shared with a user"""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sd.*, d.original_filename, d.upload_date, u.username as owner_username
+        FROM shared_documents sd
+        JOIN documents d ON sd.document_id = d.id
+        JOIN users u ON sd.owner_id = u.id
+        WHERE sd.shared_with_id = ? AND sd.status = 'accepted'
+    ''', (user_id,))
+    documents = cursor.fetchall()
+    conn.close()
+    return documents
+
+def get_pending_shares(user_id):
+    """Get pending document shares for a user"""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sd.*, d.original_filename, u.username as owner_username
+        FROM shared_documents sd
+        JOIN documents d ON sd.document_id = d.id
+        JOIN users u ON sd.owner_id = u.id
+        WHERE sd.shared_with_id = ? AND sd.status = 'pending'
+    ''', (user_id,))
+    shares = cursor.fetchall()
+    conn.close()
+    return shares
+
+def get_user_member_id(username):
+    """Get user's unique member ID"""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT unique_member_id FROM users WHERE username = ?', (username,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -381,16 +491,23 @@ def signup_with_training():
             # Hash PIN
             pin_hash = hash_pin(pin)
             
+            # Generate unique member ID
+            unique_member_id = generate_unique_member_id()
+            
             # Save to database
             conn = sqlite3.connect('users.db')
             cursor = conn.cursor()
             try:
                 cursor.execute('''
-                    INSERT INTO users (username, email, pin_hash, face_encoding_path)
-                    VALUES (?, ?, ?, ?)
-                ''', (username, email, pin_hash, face_path))
+                    INSERT INTO users (username, email, pin_hash, face_encoding_path, unique_member_id)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (username, email, pin_hash, face_path, unique_member_id))
                 conn.commit()
-                return jsonify({'success': True, 'message': 'Registration successful! You can now login.'})
+                return jsonify({
+                    'success': True, 
+                    'message': f'Registration successful! Your unique member ID is: {unique_member_id}. Please save it for document sharing.',
+                    'member_id': unique_member_id
+                })
             except sqlite3.IntegrityError:
                 return jsonify({'success': False, 'message': 'Username or email already exists!'})
             finally:
@@ -464,8 +581,17 @@ def dashboard():
     
     user_id = session.get('user_id')
     documents = get_user_documents(user_id)
+    shared_documents = get_shared_documents_for_user(user_id)
+    pending_shares = get_pending_shares(user_id)
     
-    return render_template('dashboard.html', documents=documents)
+    # Get user's member ID using dedicated function
+    member_id = get_user_member_id(session.get('username'))
+    
+    return render_template('dashboard.html', 
+                         documents=documents, 
+                         shared_documents=shared_documents,
+                         pending_shares=pending_shares,
+                         member_id=member_id)
 
 @app.route('/upload_document', methods=['POST'])
 def upload_document():
@@ -503,59 +629,222 @@ def upload_document():
     
     return redirect(url_for('dashboard'))
 
+@app.route('/share_document', methods=['POST'])
+def share_document():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Please login first'})
+    
+    try:
+        data = request.get_json()
+        document_id = data['document_id']
+        member_id = data['member_id']
+        
+        # Verify the document belongs to the current user
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM documents WHERE id = ? AND user_id = ?', 
+                      (document_id, session['user_id']))
+        document = cursor.fetchone()
+        
+        if not document:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Document not found or unauthorized'})
+        
+        # Find the user by member ID
+        target_user = get_user_by_member_id(member_id)
+        if not target_user:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Invalid member ID'})
+        
+        # Check if already shared
+        cursor.execute('SELECT * FROM shared_documents WHERE document_id = ? AND shared_with_id = ?', 
+                      (document_id, target_user[0]))
+        existing_share = cursor.fetchone()
+        
+        if existing_share:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Document already shared with this member'})
+        
+        # Create share request
+        cursor.execute('''
+            INSERT INTO shared_documents (document_id, owner_id, shared_with_id, status)
+            VALUES (?, ?, ?, 'pending')
+        ''', (document_id, session['user_id'], target_user[0]))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Document shared with {target_user[1]} (ID: {member_id}). Waiting for acceptance.',
+            'target_username': target_user[1]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+@app.route('/accept_share/<int:share_id>', methods=['POST'])
+def accept_share(share_id):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Please login first'})
+    
+    try:
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        
+        # Verify the share belongs to the current user
+        cursor.execute('SELECT * FROM shared_documents WHERE id = ? AND shared_with_id = ?', 
+                      (share_id, session['user_id']))
+        share = cursor.fetchone()
+        
+        if not share:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Share not found or unauthorized'})
+        
+        # Update status to accepted
+        cursor.execute('UPDATE shared_documents SET status = ? WHERE id = ?', 
+                      ('accepted', share_id))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Document share accepted successfully'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+@app.route('/reject_share/<int:share_id>', methods=['POST'])
+def reject_share(share_id):
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Please login first'})
+    
+    try:
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        
+        # Verify the share belongs to the current user
+        cursor.execute('SELECT * FROM shared_documents WHERE id = ? AND shared_with_id = ?', 
+                      (share_id, session['user_id']))
+        share = cursor.fetchone()
+        
+        if not share:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Share not found or unauthorized'})
+        
+        # Delete the share
+        cursor.execute('DELETE FROM shared_documents WHERE id = ?', (share_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Document share rejected'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
 @app.route('/access_document/<int:doc_id>')
 def access_document(doc_id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     
-    return render_template('access_document.html', doc_id=doc_id)
+    return render_template('access_document.html', doc_id=doc_id, is_shared=False)
+
+@app.route('/access_shared_document/<int:doc_id>')
+def access_shared_document(doc_id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    # Verify user has access to this shared document
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sd.* FROM shared_documents sd
+        WHERE sd.document_id = ? AND sd.shared_with_id = ? AND sd.status = 'accepted'
+    ''', (doc_id, session['user_id']))
+    share = cursor.fetchone()
+    conn.close()
+    
+    if not share:
+        flash('Document not found or access denied!', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('access_document.html', doc_id=doc_id, is_shared=True)
 
 @app.route('/verify_document_access', methods=['POST'])
 def verify_document_access():
+    if not session.get('logged_in'):
+        return jsonify({'success': False, 'message': 'Please login first'})
+    
     try:
         data = request.get_json()
-        doc_id = data['doc_id']
         image_data = data['image']
-        pin = data['pin']
-        username = session.get('username')
+        doc_id = data['doc_id']
+        is_shared = data.get('is_shared', False)
+        
+        # Remove data URL prefix
+        image_data = image_data.split(',')[1]
         
         # Decode base64 image
-        image_data = image_data.split(',')[1]
         image_bytes = base64.b64decode(image_data)
+        image_np = np.frombuffer(image_bytes, dtype=np.uint8)
+        image = cv2.imdecode(image_np, cv2.IMREAD_COLOR)
         
-        # Save temporary image
-        temp_path = os.path.join('static/temp', f'access_{username}_{uuid.uuid4().hex}.jpg')
-        with open(temp_path, 'wb') as f:
-            f.write(image_bytes)
+        print(f"\n[DOCUMENT ACCESS] Verifying access for document {doc_id} by user {session.get('user_id')} (shared: {is_shared})")
         
-        # Verify face and PIN
-        face_verified = verify_face(username, temp_path)
-        user = get_user_by_username(username)
-        pin_verified = verify_pin(pin, user[3]) if user else False
+        # Save temporary image for verification
+        temp_path = os.path.join('static/temp', f'access_{session["username"]}_{uuid.uuid4().hex}.jpg')
+        cv2.imwrite(temp_path, image)
         
-        os.remove(temp_path)
+        # Verify user's face
+        verification_result = verify_face(session['username'], temp_path)
         
-        if face_verified and pin_verified:
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+        
+        if verification_result:
             # Get document info
             conn = sqlite3.connect('users.db')
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM documents WHERE id = ? AND user_id = ?', 
-                         (doc_id, session['user_id']))
+            
+            if is_shared:
+                # Check shared document access
+                cursor.execute('''
+                    SELECT d.filename FROM documents d
+                    JOIN shared_documents sd ON d.id = sd.document_id
+                    WHERE d.id = ? AND sd.shared_with_id = ? AND sd.status = 'accepted'
+                ''', (doc_id, session['user_id']))
+            else:
+                # Check owned document access
+                cursor.execute('SELECT filename FROM documents WHERE id = ? AND user_id = ?', 
+                              (doc_id, session['user_id']))
+            
             document = cursor.fetchone()
             conn.close()
             
             if document:
-                return jsonify({
-                    'success': True, 
-                    'message': 'Access granted!',
-                    'download_url': url_for('download_document', doc_id=doc_id)
-                })
+                filename = document[0]
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                
+                if os.path.exists(file_path):
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        content = file.read()
+                    
+                    return jsonify({
+                        'success': True, 
+                        'content': content,
+                        'filename': filename,
+                        'is_shared': is_shared
+                    })
+                else:
+                    return jsonify({'success': False, 'message': 'Document file not found'})
             else:
-                return jsonify({'success': False, 'message': 'Document not found!'})
+                return jsonify({'success': False, 'message': 'Document not found or access denied'})
         else:
-            return jsonify({'success': False, 'message': 'Authentication failed!'})
+            return jsonify({'success': False, 'message': 'Face verification failed. Access denied.'})
             
     except Exception as e:
+        print(f"[DOCUMENT ACCESS] Error: {str(e)}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/download_document/<int:doc_id>')

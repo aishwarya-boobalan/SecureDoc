@@ -5,28 +5,32 @@
 {% block content %}
 <div class="auth-container">
     <div class="auth-card">
-        <h2>Document Access Verification</h2>
-        <p>Please verify your identity to access this document</p>
+        <h2>🔐 Document Access Verification</h2>
+        <p><strong>⚠️ Strict verification required to access this document</strong></p>
+        {% if is_shared %}
+        <div class="shared-indicator">
+            <p style="color: #28a745; font-weight: bold;">📤 Shared Document Access</p>
+        </div>
+        {% endif %}
         
         <div class="verification-steps">
             <div class="step">
-                <h3>Face Verification</h3>
+                <h3>📸 Face Verification</h3>
+                <p><strong>Important Tips:</strong></p>
+                <ul style="text-align: left; margin: 1rem 0; font-size: 0.9rem;">
+                    <li>✅ Ensure good lighting (same as registration)</li>
+                    <li>✅ Look directly at the camera</li>
+                    <li>✅ Keep your face centered</li>
+                    <li>❌ No sunglasses or masks</li>
+                </ul>
                 <div class="camera-container">
                     <video id="video" autoplay></video>
                     <canvas id="canvas" style="display: none;"></canvas>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="startCamera()">Start Camera</button>
+                <button type="button" class="btn btn-primary" id="start-camera-btn" onclick="startCamera()">Start Camera</button>
             </div>
             
-            <div class="step">
-                <h3>PIN Verification</h3>
-                <div class="form-group">
-                    <label for="access_pin">4-Digit PIN:</label>
-                    <input type="password" id="access_pin" pattern="\d{4}" maxlength="4" required>
-                </div>
-            </div>
-            
-            <button type="button" class="btn btn-primary" onclick="verifyAccess()">Verify & Access Document</button>
+            <button type="button" class="btn btn-primary" onclick="verifyAccess()">Verify Face & Access Document</button>
             <div id="access-status" class="status-message"></div>
         </div>
         
@@ -41,33 +45,36 @@
 <script>
 let stream;
 const docId = {{ doc_id }};
+const isShared = {{ 'true' if is_shared else 'false' }};
 
 function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function(mediaStream) {
-            stream = mediaStream;
-            const video = document.getElementById('video');
-            video.srcObject = stream;
-        })
-        .catch(function(error) {
-            console.error('Camera error:', error);
-            alert('Camera access denied or not available');
-        });
+    navigator.mediaDevices.getUserMedia({ 
+        video: { 
+            width: 640, 
+            height: 480,
+            facingMode: 'user'
+        } 
+    })
+    .then(function(mediaStream) {
+        stream = mediaStream;
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        document.getElementById('start-camera-btn').textContent = '✅ Camera Active';
+        document.getElementById('start-camera-btn').disabled = true;
+    })
+    .catch(function(error) {
+        console.error('Camera error:', error);
+        alert('Camera access denied or not available');
+    });
 }
 
 function verifyAccess() {
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const pin = document.getElementById('access_pin').value;
     
     if (!stream) {
-        alert('Please start camera first');
-        return;
-    }
-    
-    if (pin.length !== 4) {
-        alert('Please enter a 4-digit PIN');
+        alert('⚠️ Please start camera first');
         return;
     }
     
@@ -75,7 +82,11 @@ function verifyAccess() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
     
-    const imageData = canvas.toDataURL('image/jpeg');
+    // Use high quality image for accurate verification (same as login)
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
+    
+    const statusEl = document.getElementById('access-status');
+    statusEl.innerHTML = '<span class="info">🔍 Verifying your identity... Please wait...</span>';
     
     fetch('/verify_document_access', {
         method: 'POST',
@@ -85,26 +96,51 @@ function verifyAccess() {
         body: JSON.stringify({
             doc_id: docId,
             image: imageData,
-            pin: pin
+            is_shared: isShared
         })
     })
     .then(response => response.json())
     .then(data => {
-        const statusEl = document.getElementById('access-status');
         if (data.success) {
-            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
+            statusEl.innerHTML = '<span class="success">✅ Access granted! Loading document...</span>';
             stopCamera();
-            setTimeout(() => {
-                window.open(data.download_url, '_blank');
-            }, 1000);
+            
+            // Display document content
+            displayDocumentContent(data.content, data.filename, data.is_shared);
         } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+            statusEl.innerHTML = '<span class="error">❌ ' + data.message + ' Ensure good lighting and face the camera directly.</span>';
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        document.getElementById('access-status').innerHTML = '<span class="error">❌ Access verification failed</span>';
+        statusEl.innerHTML = '<span class="error">❌ Access verification failed. Please try again.</span>';
     });
+}
+
+function displayDocumentContent(content, filename, isSharedDoc) {
+    const container = document.querySelector('.auth-card');
+    const shareLabel = isSharedDoc ? ' (Shared Document)' : '';
+    
+    container.innerHTML = `
+        <h2>📄 Document: ${filename}${shareLabel}</h2>
+        <div class="document-content">
+            <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #dee2e6; font-family: 'Courier New', monospace; max-height: 500px; overflow-y: auto;">${content}</pre>
+        </div>
+        <div style="margin-top: 2rem;">
+            <button onclick="downloadDocument('${filename}', \`${content}\`)" class="btn btn-primary">💾 Download</button>
+            <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
+        </div>
+    `;
+}
+
+function downloadDocument(filename, content) {
+    const element = document.createElement('a');
+    const file = new Blob([content], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = filename;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
 }
 
 function stopCamera() {

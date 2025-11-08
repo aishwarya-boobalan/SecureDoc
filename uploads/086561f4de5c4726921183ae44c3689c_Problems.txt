@@ -1,0 +1,48 @@
+Top Java String Interview Problems
+🔹 Basic Level
+Reverse a String
+Input: "hello" → Output: "olleh"
+
+Check Palindrome String
+Input: "madam" → Output: true
+
+Count Vowels and Consonants
+Input: "India" → Output: Vowels = 3, Consonants = 2
+
+Remove Duplicate Characters
+Input: "programming" → Output: "progamin"
+
+Check if Two Strings are Anagrams
+Input: "listen", "silent" → Output: true
+
+🔹 Intermediate Level
+Find First Non-Repeated Character
+Input: "swiss" → Output: "w"
+
+Check for Rotation of Another String
+Input: "abcd", "cdab" → Output: true
+
+Character Frequency Count
+Input: "success" → Output: s=3, u=1, c=2, e=1
+
+Longest Common Prefix
+Input: ["flower", "flow", "flight"] → Output: "fl"
+
+Check if String Contains Only Digits
+Input: "12345" → Output: true
+
+🔹 Advanced Level
+Print All Substrings of a String
+Input: "abc" → Output: a, ab, abc, b, bc, c
+
+Find Longest Palindromic Substring
+Input: "babad" → Output: "bab" or "aba"
+
+Run Length Encoding
+Input: "aaabbccc" → Output: "a3b2c3"
+
+Minimum Number of Deletions to Make Anagram
+Input: "bcadeh", "hea" → Output: 4
+
+Check Balanced Parentheses
+Input: "{[()]}" → Output: true

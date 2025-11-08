@@ -7,6 +7,10 @@
     <div class="dashboard-header">
         <h2>Welcome, {{ session.username }}!</h2>
         <p>Manage your secure documents</p>
+        <div class="member-info">
+            <strong>Your Member ID: {{ member_id }}</strong>
+            <small>(Share this ID with others to receive documents)</small>
+        </div>
     </div>
     
     <div class="upload-section">
@@ -34,6 +38,7 @@
                     </div>
                     <div class="document-actions">
                         <a href="{{ url_for('access_document', doc_id=doc[0]) }}" class="btn btn-small">Access</a>
+                        <button onclick="showShareModal({{ doc[0] }}, `{{ doc[3] }}`)" class="btn btn-small btn-secondary">Share</button>
                     </div>
                 </div>
                 {% endfor %}
@@ -44,5 +49,182 @@
             </div>
         {% endif %}
     </div>
+    
+    <!-- Shared Documents Section -->
+    {% if shared_documents %}
+    <div class="documents-section">
+        <h3>Documents Shared with You</h3>
+        <div class="documents-grid">
+            {% for shared in shared_documents %}
+            <div class="document-card shared-doc">
+                <div class="document-icon">📄🔗</div>
+                <div class="document-info">
+                    <h4>{{ shared[2] }}</h4>
+                    <p>Shared by: {{ shared[7] }}</p>
+                    <p>Shared on: {{ shared[5] }}</p>
+                </div>
+                <div class="document-actions">
+                    <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-small">Access</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Pending Share Requests -->
+    {% if pending_shares %}
+    <div class="documents-section">
+        <h3>Pending Share Requests</h3>
+        <div class="documents-grid">
+            {% for pending in pending_shares %}
+            <div class="document-card pending-doc">
+                <div class="document-icon">📄⏳</div>
+                <div class="document-info">
+                    <h4>{{ pending[2] }}</h4>
+                    <p>From: {{ pending[7] }}</p>
+                    <p>Requested: {{ pending[5] }}</p>
+                </div>
+                <div class="document-actions">
+                    <button onclick="acceptShare({{ pending[0] }})" class="btn btn-small btn-success">Accept</button>
+                    <button onclick="rejectShare({{ pending[0] }})" class="btn btn-small btn-danger">Reject</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<!-- Share Document Modal -->
+<div id="shareModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Share Document</h3>
+            <span class="close" onclick="closeShareModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Share "<span id="shareDocumentName"></span>" with another member:</p>
+            <div class="form-group">
+                <label for="memberIdInput">Recipient's Member ID:</label>
+                <input type="text" id="memberIdInput" placeholder="Enter 6-digit Member ID" maxlength="6" pattern="[0-9]{6}">
+            </div>
+            <div class="modal-buttons">
+                <button onclick="shareDocument()" class="btn btn-primary">Share Document</button>
+                <button onclick="closeShareModal()" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentShareDocId = null;
+
+function showShareModal(docId, docName) {
+    currentShareDocId = docId;
+    document.getElementById('shareDocumentName').textContent = docName;
+    document.getElementById('memberIdInput').value = '';
+    document.getElementById('shareModal').style.display = 'block';
+}
+
+function closeShareModal() {
+    document.getElementById('shareModal').style.display = 'none';
+    currentShareDocId = null;
+}
+
+async function shareDocument() {
+    const memberId = document.getElementById('memberIdInput').value.trim();
+    
+    if (!memberId || memberId.length !== 6 || !/^\d{6}$/.test(memberId)) {
+        alert('Please enter a valid 6-digit Member ID');
+        return;
+    }
+    
+    if (memberId === '{{ member_id }}') {
+        alert('You cannot share a document with yourself');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/share_document', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                document_id: currentShareDocId,
+                member_id: memberId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            closeShareModal();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+}
+
+async function acceptShare(shareId) {
+    if (!confirm('Accept this document share?')) return;
+    
+    try {
+        const response = await fetch(`/accept_share/${shareId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+}
+
+async function rejectShare(shareId) {
+    if (!confirm('Reject this document share? This action cannot be undone.')) return;
+    
+    try {
+        const response = await fetch(`/reject_share/${shareId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('shareModal');
+    if (event.target == modal) {
+        closeShareModal();
+    }
+}
+</script>
+
 {% endblock %}

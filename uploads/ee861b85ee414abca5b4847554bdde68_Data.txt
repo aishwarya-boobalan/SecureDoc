@@ -1,0 +1,40 @@
+Business Name: Stellar Tech Solutions
+Location: 123 Tech Park Avenue, Silicon City
+
+Working Hours:
+- Monday to Saturday: 9:00 AM - 10:00 PM
+- Sunday: Closed
+
+Services Offered:
+1. Software Development
+2. IT Consulting
+3. Cloud Solutions
+4. Cybersecurity Services
+5. Mobile App Development
+
+Frequently Asked Questions (FAQs):
+
+Q: What are your business hours?
+A: We are open from 9:00 AM to 10:00 PM, Monday to Saturday. We are closed on Sundays.
+
+Q: Do you offer cloud services?
+A: Yes, we offer cloud solutions tailored to your business needs.
+
+Q: How can I get a quote for custom software development?
+A: You can contact our support team via email at support@stellartech.com, or fill out the contact form on our website.
+
+Q: Do you provide cybersecurity services?
+A: Yes, we specialize in cybersecurity services to protect your business from threats.
+
+Q: What is your phone number for customer support?
+A: You can reach our customer support at +1-234-567-8900 during business hours.
+
+Q: Do you offer services on Sunday?
+A: No, we are closed on Sundays.
+
+Q: How can I schedule a consultation?
+A: You can schedule a consultation by visiting our website or calling our support line during business hours.
+
+Q: What are your rates for IT consulting services?
+A: Our rates vary depending on the scope of the project. Please contact us for more details.
+
