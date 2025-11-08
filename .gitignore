@@ -1,4 +1,67 @@
+# Python Virtual Environment
 venv/
+env/
+.venv/
+.env/
+
+# User Data and Uploads
 uploads/
-static/temp/
 face_database/
+static/temp/
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+users.db
+
+# Python Cache and Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment Variables
+.env
+.env.local
+.env.production
+.env.staging
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+
+# Machine Learning Models Cache
+.deepface/
+models/
+
+# Security Keys and Certificates
+*.key
+*.pem
+*.crt
+*.p12
+
+# Backup Files
+*.bak
+*.backup
