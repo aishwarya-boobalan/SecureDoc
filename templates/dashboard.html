@@ -4,227 +4,826 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <div class="dashboard-header">
-        <h2>Welcome, {{ session.username }}!</h2>
-        <p>Manage your secure documents</p>
-        <div class="member-info">
-            <strong>Your Member ID: {{ member_id }}</strong>
-            <small>(Share this ID with others to receive documents)</small>
-        </div>
-    </div>
-    
-    <div class="upload-section">
-        <h3>Upload New Document</h3>
-        <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data" class="upload-form">
-            <div class="form-group">
-                <label for="document">Select Document:</label>
-                <input type="file" id="document" name="document" accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.gif" required>
-                <small>Supported formats: PDF, DOCX, DOC, TXT, PNG, JPG, JPEG, GIF (Max: 16MB)</small>
-            </div>
-            <button type="submit" class="btn btn-primary">Upload Document</button>
-        </form>
-    </div>
-    
-    <div class="documents-section">
-        <h3>Your Documents</h3>
-        {% if documents %}
-            <div class="documents-grid">
-                {% for doc in documents %}
-                <div class="document-card">
-                    <div class="document-icon">📄</div>
-                    <div class="document-info">
-                        <h4>{{ doc[3] }}</h4>
-                        <p>Uploaded: {{ doc[5] }}</p>
+    <div class="dashboard-container">
+        <!-- Overlay Removed for Premium Feel -->
+        <div class="dashboard-header-card glass-card mb-4" data-tilt data-tilt-max="5" data-tilt-glare
+            data-tilt-max-glare="0.2">
+            <div class="header-content">
+                <div>
+                    <h2 class="neon-text">Welcome Back, <span class="highlight-text">{{ session.username }}</span></h2>
+                    <p class="text-secondary">Secure Document Vault</p>
+                </div>
+                <div class="member-badge">
+                    <i class="fas fa-id-badge neon-icon"></i>
+                    <div class="badge-info">
+                        <span class="label">Member ID</span>
+                        <span class="value glow-text">{{ member_id }}</span>
                     </div>
-                    <div class="document-actions">
-                        <a href="{{ url_for('access_document', doc_id=doc[0]) }}" class="btn btn-small">Access</a>
-                        <button onclick="showShareModal({{ doc[0] }}, `{{ doc[3] }}`)" class="btn btn-small btn-secondary">Share</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="grid-layout">
+        <!-- Upload Section -->
+        <div class="upload-section glass-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+            <h3 class="section-title"><i class="fas fa-cloud-upload-alt"></i> Secure Upload</h3>
+            <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data"
+                class="upload-form">
+                <div class="form-group upload-zone" id="drop-zone" data-tilt data-tilt-max="10" data-tilt-scale="1.02">
+                    <div class="upload-content">
+                        <i class="fas fa-file-import upload-icon"></i>
+                        <p>Drag & Drop files or <span class="highlight-text">Click to Browse</span></p>
+                        <small class="file-info">PDF, DOCX, TXT, Images (Max: 16MB)</small>
+                    </div>
+                    <input type="file" id="document" name="document" accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.gif"
+                        required>
+                    <div id="file-preview" class="file-preview"></div>
+                </div>
+                <button type="submit" class="btn btn-neon full-width">
+                    <i class="fas fa-lock"></i> Encrypt & Upload
+                </button>
+            </form>
+        </div>
+
+        <!-- Documents List -->
+        <div class="documents-main glass-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+            <h3 class="section-title"><i class="fas fa-folder-open"></i> Your Documents</h3>
+
+            {% if documents %}
+            <div class="documents-grid modern-grid">
+                {% for doc in documents %}
+                <div class="doc-item">
+                    <div class="doc-icon-wrapper">
+                        {% if doc[3].endswith('.pdf') %}
+                        <i class="fas fa-file-pdf pdf-color"></i>
+                        {% elif doc[3].endswith(('.png', '.jpg', '.jpeg')) %}
+                        <i class="fas fa-file-image image-color"></i>
+                        {% else %}
+                        <i class="fas fa-file-alt text-color"></i>
+                        {% endif %}
+                    </div>
+                    <div class="doc-details">
+                        <h4>{{ doc[3] }}</h4>
+                        <span class="doc-date">{{ doc[5] }}</span>
+                    </div>
+                    <div class="doc-actions">
+                        <a href="{{ url_for('access_document', doc_id=doc[0]) }}" class="btn-icon" title="Access">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <button onclick="showShareModal({{ doc[0] }}, `{{ doc[3] }}`)" class="btn-icon secondary"
+                            title="Group Share">
+                            <i class="fas fa-users-cog"></i>
+                        </button>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-        {% else %}
+            {% else %}
             <div class="empty-state">
-                <p>No documents uploaded yet. Upload your first document above.</p>
+                <i class="fas fa-box-open neon-pulse"></i>
+                <p>No documents yet. Upload your first secure file.</p>
             </div>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
-    
-    <!-- Shared Documents Section -->
+
+    <!-- Shared with Me Section -->
     {% if shared_documents %}
-    <div class="documents-section">
-        <h3>Documents Shared with You</h3>
-        <div class="documents-grid">
+    <div class="glass-card mt-4" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+        <h3 class="section-title"><i class="fas fa-share-alt-square"></i> Shared with You</h3>
+        <div class="documents-grid modern-grid">
             {% for shared in shared_documents %}
-            <div class="document-card shared-doc">
-                <div class="document-icon">📄🔗</div>
-                <div class="document-info">
+            <div class="doc-item shared">
+                <div class="doc-icon"><i class="fas fa-file-contract"></i></div>
+                <div class="doc-details">
                     <h4>{{ shared[2] }}</h4>
-                    <p>Shared by: {{ shared[7] }}</p>
-                    <p>Shared on: {{ shared[5] }}</p>
+                    <span class="meta">From: <span class="highlight-text">@{{ shared[7] }}</span></span>
                 </div>
-                <div class="document-actions">
-                    <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-small">Access</a>
+                <div class="doc-actions">
+                    <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-neon-small">
+                        Access
+                    </a>
                 </div>
             </div>
             {% endfor %}
         </div>
     </div>
     {% endif %}
-    
-    <!-- Pending Share Requests -->
+
+    <!-- Pending Requests -->
     {% if pending_shares %}
-    <div class="documents-section">
-        <h3>Pending Share Requests</h3>
-        <div class="documents-grid">
-            {% for pending in pending_shares %}
-            <div class="document-card pending-doc">
-                <div class="document-icon">📄⏳</div>
-                <div class="document-info">
-                    <h4>{{ pending[2] }}</h4>
-                    <p>From: {{ pending[7] }}</p>
-                    <p>Requested: {{ pending[5] }}</p>
-                </div>
-                <div class="document-actions">
-                    <button onclick="acceptShare({{ pending[0] }})" class="btn btn-small btn-success">Accept</button>
-                    <button onclick="rejectShare({{ pending[0] }})" class="btn btn-small btn-danger">Reject</button>
-                </div>
+    <div class="glass-card mt-4 notification-card" data-tilt data-tilt-max="5" data-tilt-glare
+        data-tilt-max-glare="0.2">
+        <h3 class="section-title"><i class="fas fa-bell"></i> Pending Requests</h3>
+        {% for pending in pending_shares %}
+        <div class="pending-item">
+            <div class="pending-info">
+                <span class="highlight-text">{{ pending[7] }}</span> wants to share "<em>{{ pending[2] }}</em>"
             </div>
-            {% endfor %}
+            <div class="pending-actions">
+                <button onclick="acceptShare({{ pending[0] }})" class="btn btn-success btn-sm">Accept</button>
+                <button onclick="rejectShare({{ pending[0] }})" class="btn btn-danger btn-sm">Reject</button>
+            </div>
         </div>
+        {% endfor %}
     </div>
     {% endif %}
+
+    <!-- Matrix Access Logs -->
+    <div class="glass-card mt-4 terminal-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+        <h3 class="section-title"><i class="fas fa-terminal"></i> Live System Logs</h3>
+        <div id="matrix-terminal" class="matrix-terminal">
+            <!-- Logs injected via JS -->
+            <div class="matrix-line"><span class="time">[SYSTEM]</span> Initializing Security Protocols...</div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Share Document Modal -->
+<!-- Modern Share Modal -->
 <div id="shareModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content glass-limit neon-border">
         <div class="modal-header">
-            <h3>Share Document</h3>
+            <h3><i class="fas fa-users"></i> Group Sharing</h3>
             <span class="close" onclick="closeShareModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <p>Share "<span id="shareDocumentName"></span>" with another member:</p>
-            <div class="form-group">
-                <label for="memberIdInput">Recipient's Member ID:</label>
-                <input type="text" id="memberIdInput" placeholder="Enter 6-digit Member ID" maxlength="6" pattern="[0-9]{6}">
+            <p>Sharing: <strong id="shareDocumentName" class="highlight-text"></strong></p>
+
+            <div class="form-group mt-4">
+                <label>Recipients (Enter Member ID & Press Enter)</label>
+                <div class="chip-input-container" id="chipContainer">
+                    <!-- Chips will go here -->
+                    <input type="text" id="memberIdInput" placeholder="Add ID..." maxlength="6">
+                </div>
+                <small class="text-secondary">Click 'Enter' or 'Space' to add a user. Max 10 users.</small>
             </div>
-            <div class="modal-buttons">
-                <button onclick="shareDocument()" class="btn btn-primary">Share Document</button>
-                <button onclick="closeShareModal()" class="btn btn-secondary">Cancel</button>
+
+            <div class="form-group mt-3">
+                <label>Security Level</label>
+                <select id="securityLevel" class="neon-select">
+                    <option value="standard">Standard (No Expiry)</option>
+                    <option value="confidential">Confidential (Expires in 24h)</option>
+                    <option value="top_secret">Top Secret (Self-Destruct after 1 View)</option>
+                </select>
+            </div>
+
+            <div class="modal-footer">
+                <button onclick="shareDocument()" class="btn btn-neon normal-btn">
+                    <i class="fas fa-paper-plane"></i> Send Invites
+                </button>
+                <button onclick="closeShareModal()" class="btn btn-ghost normal-btn">Cancel</button>
             </div>
         </div>
     </div>
 </div>
 
+<style>
+    /* variables */
+    :root {
+        --primary-neon: #00f2ff;
+        --secondary-neon: #bd00ff;
+        --glass-bg: rgba(18, 18, 24, 0.85);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --chip-bg: rgba(0, 242, 255, 0.15);
+        --text-color: #e0e0e0;
+    }
+
+    /* PREMIUM AURORA BACKGROUND */
+    body {
+        margin: 0;
+        background: #000;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: "";
+        position: fixed;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle at 50% 50%,
+                rgba(76, 29, 149, 0.15),
+                rgba(15, 23, 42, 0.4),
+                rgba(0, 0, 0, 1));
+        background-size: 100% 100%;
+        animation: auroraMove 15s ease infinite alternate;
+        z-index: -2;
+    }
+
+    body::after {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(120deg, rgba(0, 242, 255, 0.03), rgba(189, 0, 255, 0.03));
+        z-index: -1;
+    }
+
+    @keyframes auroraMove {
+        0% {
+            transform: translate(0, 0) scale(1);
+        }
+
+        100% {
+            transform: translate(-2%, 2%) scale(1.05);
+        }
+    }
+
+    /* DECRYPTION OVERLAY REMOVED */
+
+    /* Overall Layout */
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding-bottom: 50px;
+    }
+
+    /* Glass Cards 2.0 - Premium */
+    .glass-card {
+        background: rgba(13, 14, 18, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+    }
+
+    .glass-card:hover {
+        /* transform: translateY(-4px); */
+        /* Removed for Vanilla Tilt */
+        /* box-shadow: 0 30px 60px rgba(0, 242, 255, 0.05); */
+        /* Removed for Vanilla Tilt */
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Headers */
+    .section-title {
+        border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        color: var(--primary-neon);
+        text-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+    }
+
+    /* Header Card */
+    .dashboard-header-card {
+        background: linear-gradient(135deg, rgba(0, 242, 255, 0.05) 0%, rgba(189, 0, 255, 0.05) 100%);
+    }
+
+    /* Badges */
+    .member-badge {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 1rem 2rem;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 242, 255, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.05);
+    }
+
+    .neon-icon {
+        font-size: 2.5rem;
+        color: var(--primary-neon);
+        filter: drop-shadow(0 0 5px var(--primary-neon));
+    }
+
+    .glow-text {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    /* Grid Layout */
+    .grid-layout {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 2rem;
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+        border: 2px dashed rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 16px;
+        padding: 3rem 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+    }
+
+    .upload-zone:hover {
+        border-color: var(--primary-neon);
+        box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.05);
+    }
+
+    .upload-zone input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .upload-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: rgba(255, 255, 255, 0.2);
+        transition: 0.3s;
+    }
+
+    .upload-zone:hover .upload-icon {
+        color: var(--primary-neon);
+        transform: scale(1.1);
+    }
+
+    /* Buttons */
+    .btn-neon {
+        background: linear-gradient(90deg, var(--primary-neon), var(--secondary-neon));
+        color: #000;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: 0.3s;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+        cursor: pointer;
+    }
+
+    .btn-neon:hover {
+        box-shadow: 0 0 25px rgba(0, 242, 255, 0.6);
+        transform: translateY(-2px);
+    }
+
+    .btn-neon-small {
+        background: rgba(0, 242, 255, 0.1);
+        border: 1px solid var(--primary-neon);
+        color: var(--primary-neon);
+        padding: 5px 15px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+
+    .btn-neon-small:hover {
+        background: var(--primary-neon);
+        color: #000;
+        box-shadow: 0 0 10px var(--primary-neon);
+    }
+
+    /* Documents Grid */
+    .modern-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 1.2rem;
+    }
+
+    .doc-item {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        /* Stack for vertical look in small cards */
+        gap: 1rem;
+        transition: 0.3s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .doc-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3px;
+        height: 100%;
+        background: linear-gradient(to bottom, var(--primary-neon), var(--secondary-neon));
+        opacity: 0.5;
+    }
+
+    .doc-item:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .doc-icon-wrapper {
+        font-size: 2.5rem;
+        align-self: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .doc-details h4 {
+        margin: 0;
+        font-size: 1.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #fff;
+    }
+
+    .doc-actions {
+        display: flex;
+        justify-content: space-between;
+        margin-top: auto;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Chips Input */
+    .chip-input-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--glass-border);
+        border-radius: 8px;
+        padding: 0.5rem;
+        min-height: 50px;
+    }
+
+    .chip {
+        background: var(--chip-bg);
+        border: 1px solid var(--primary-neon);
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        animation: popIn 0.3s ease;
+    }
+
+    .chip i {
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .chip i:hover {
+        color: #ff4d4d;
+    }
+
+    .chip-input-container input {
+        background: transparent;
+        border: none;
+        color: #fff;
+        flex: 1;
+        min-width: 100px;
+        outline: none;
+        padding: 5px;
+    }
+
+    @keyframes popIn {
+        from {
+            transform: scale(0.8);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    /* Modal */
+    .modal-content.glass-limit {
+        background: #1a1a20;
+        border: 1px solid var(--primary-neon);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
+    }
+
+    .highlight-text {
+        color: var(--primary-neon);
+        font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Matrix Terminal Styles */
+    .terminal-card {
+        border-color: #0f0;
+        /* Matrix Green Border */
+        background: rgba(0, 10, 0, 0.9);
+    }
+
+    .matrix-terminal {
+        height: 200px;
+        overflow-y: hidden;
+        /* We will auto-scroll */
+        font-family: 'Courier New', Courier, monospace;
+        color: #0f0;
+        font-size: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        position: relative;
+    }
+
+    .matrix-terminal::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background-size: 100% 2px, 3px 100%;
+        pointer-events: none;
+    }
+
+    .matrix-line {
+        padding: 2px 0;
+        opacity: 0;
+        animation: fadeIn 0.5s forwards;
+    }
+
+    .matrix-line .time {
+        color: #00fa9a;
+        margin-right: 10px;
+        font-weight: bold;
+    }
+
+    .matrix-line .user {
+        color: #bd00ff;
+    }
+
+    .matrix-line .action {
+        color: #00f2ff;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Neon Select */
+    .neon-select {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: 1px solid var(--primary-neon);
+        padding: 10px;
+        border-radius: 8px;
+        outline: none;
+    }
+
+    .neon-select option {
+        background: #1a1a20;
+    }
+</style>
+
 <script>
-let currentShareDocId = null;
+    // Variables
+    let currentShareDocId = null;
+    const chipContainer = document.getElementById('chipContainer');
+    const memberIdInput = document.getElementById('memberIdInput');
+    let memberIds = [];
 
-function showShareModal(docId, docName) {
-    currentShareDocId = docId;
-    document.getElementById('shareDocumentName').textContent = docName;
-    document.getElementById('memberIdInput').value = '';
-    document.getElementById('shareModal').style.display = 'block';
-}
+    value: 0.5
+                }
 
-function closeShareModal() {
-    document.getElementById('shareModal').style.display = 'none';
-    currentShareDocId = null;
-}
-
-async function shareDocument() {
-    const memberId = document.getElementById('memberIdInput').value.trim();
-    
-    if (!memberId || memberId.length !== 6 || !/^\d{6}$/.test(memberId)) {
-        alert('Please enter a valid 6-digit Member ID');
-        return;
+                ,
+    shape: {
+        type: "circle"
     }
-    
-    if (memberId === '{{ member_id }}') {
-        alert('You cannot share a document with yourself');
-        return;
+
+                ,
+    size: {
+        value: {
+            min: 1, max: 3
+        }
     }
-    
-    try {
-        const response = await fetch('/share_document', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                document_id: currentShareDocId,
-                member_id: memberId
-            })
+            }
+
+            ,
+    detectRetina: true
         });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(result.message);
+
+    // Decryption Animation Logic
+    // Decryption Animation REMOVED
+
+    // Matrix Log Polling & Simulation
+    function showShareModal(docId, docName) {
+        currentShareDocId = docId;
+        document.getElementById('shareDocumentName').textContent = docName;
+        memberIds = []; // Reset
+        renderChips();
+        document.getElementById('shareModal').style.display = 'block';
+        memberIdInput.focus();
+    }
+
+    function closeShareModal() {
+        document.getElementById('shareModal').style.display = 'none';
+        currentShareDocId = null;
+    }
+
+    // Chip Input Logic
+    memberIdInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ' ' || event.key === ',') {
+            event.preventDefault();
+            const value = this.value.trim();
+
+            if (value) {
+                addMemberId(value);
+                this.value = '';
+            }
+        }
+
+        else if (event.key === 'Backspace' && !this.value) {
+            if (memberIds.length > 0) {
+                removeMemberId(memberIds.length - 1);
+            }
+        }
+    });
+
+    function addMemberId(id) {
+
+        // Validation: 6 digits
+        if (!/^\d {
+                    6
+    }
+
+    $ /.test(id)) {
+        Toast.show('ID must be 6 digits.', 'error');
+        return;
+    }
+
+    if (memberIds.includes(id)) {
+        Toast.show('ID already added.', 'warning');
+        return;
+    }
+
+    if (memberIds.length >= 10) {
+        Toast.show('Max 10 recipients.', 'warning');
+        return;
+    }
+
+    memberIds.push(id);
+    renderChips();
+        }
+
+    function removeMemberId(index) {
+        memberIds.splice(index, 1);
+        renderChips();
+    }
+
+    function renderChips() {
+        // Clear existing chips only (keep input)
+        const chips = chipContainer.querySelectorAll('.chip');
+        chips.forEach(chip => chip.remove());
+
+        memberIds.forEach((id, index) => {
+            const chip = document.createElement('div');
+            chip.className = 'chip';
+
+            chip.innerHTML = `<span>${id}</span>
+                <i class="fas fa-times" onclick="removeMemberId(${index})"></i>`;
+            chipContainer.insertBefore(chip, memberIdInput);
+        });
+    }
+
+    window.onclick = function (event) {
+        const modal = document.getElementById('shareModal');
+
+        if (event.target == modal) {
             closeShareModal();
-        } else {
-            alert('Error: ' + result.message);
         }
-    } catch (error) {
-        alert('Network error: ' + error.message);
     }
-}
 
-async function acceptShare(shareId) {
-    if (!confirm('Accept this document share?')) return;
-    
-    try {
-        const response = await fetch(`/accept_share/${shareId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+    // API Calls
+    async function shareDocument() {
+        const currentInput = memberIdInput.value.trim();
+
+        // Auto-add text input if it's a valid ID and user didn't hit enter
+        if (currentInput && /^\d{6}$/.test(currentInput) && !memberIds.includes(currentInput)) {
+            memberIds.push(currentInput);
+        }
+
+        if (memberIds.length === 0) {
+            Toast.show('Please enter or add at least one Member ID.', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/share_document', {
+
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+
+                ,
+                body: JSON.stringify({
+                    document_id: currentShareDocId,
+                    member_ids: memberIds,
+                    security_level: document.getElementById('securityLevel').value
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                Toast.show(result.message, 'success');
+                closeShareModal();
             }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Error: ' + result.message);
-        }
-    } catch (error) {
-        alert('Network error: ' + error.message);
-    }
-}
 
-async function rejectShare(shareId) {
-    if (!confirm('Reject this document share? This action cannot be undone.')) return;
-    
-    try {
-        const response = await fetch(`/reject_share/${shareId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+            else {
+                Toast.show(result.message, 'error');
             }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert(result.message);
-            location.reload();
-        } else {
-            alert('Error: ' + result.message);
         }
-    } catch (error) {
-        alert('Network error: ' + error.message);
-    }
-}
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('shareModal');
-    if (event.target == modal) {
-        closeShareModal();
+        catch (error) {
+            console.error(error);
+            Toast.show('Network error', 'error');
+        }
     }
-}
+
+    async function acceptShare(shareId) {
+        if (!confirm('Accept this document?')) return;
+
+        try {
+            const response = await fetch(`/accept_share/${shareId}`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                Toast.show('Document accepted', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }
+
+            else {
+                Toast.show(result.message, 'error');
+            }
+        }
+
+        catch (error) {
+            Toast.show('Network error', 'error');
+        }
+    }
+
+    async function rejectShare(shareId) {
+        if (!confirm('Reject request?')) return;
+
+        try {
+            const response = await fetch(`/reject_share/${shareId}`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                Toast.show('Request rejected', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }
+
+            else {
+                Toast.show(result.message, 'error');
+            }
+        }
+
+        catch (error) {
+            Toast.show('Network error', 'error');
+        }
+    }
+
+    // File Preview Helper
+    document.getElementById('document').addEventListener('change', function (e) {
+        const fileName = e.target.files[0]?.name;
+        const uploadContent = document.querySelector('.upload-content');
+
+        if (fileName) {
+            uploadContent.innerHTML = `<i class="fas fa-check-circle" style="color: var(--primary-neon); font-size: 3rem;"></i><p>${fileName}</p>`;
+        }
+    });
+
 </script>
-
 {% endblock %}

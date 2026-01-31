@@ -3,237 +3,444 @@
 {% block title %}Sign Up - Face Auth Document Locker{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <h2>Create Account</h2>
-        
-        <div class="signup-steps">
+<div class="auth-wrapper">
+    <div class="glass-card auth-card extended-card">
+        <h2 class="text-center">Create Secure ID</h2>
+        <p class="text-center mb-4" style="color: var(--text-secondary)">Setup your biometric document vault</p>
+
+        <!-- Registration Progress -->
+        <div class="login-progress">
+            <div class="progress-step active" id="prog-1">1</div>
+            <div class="progress-line"></div>
+            <div class="progress-step" id="prog-2">2</div>
+        </div>
+
+        <div class="signup-steps-container">
+            <!-- Step 1: Basic Info -->
             <div class="step step-1 active">
-                <h3>Step 1: Basic Information</h3>
+                <h3><i class="fas fa-user-plus"></i> Basic Information</h3>
+
                 <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Choose a unique username" required>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="email">Email:</label>
-                    <input type="email" id="email" name="email" required>
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="your@email.com" required>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="pin">4-Digit PIN:</label>
-                    <input type="password" id="pin" name="pin" pattern="\d{4}" maxlength="4" required>
-                    <small>Enter a 4-digit PIN for additional security</small>
+                    <label for="pin">Security PIN (4-Digits)</label>
+                    <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="••••" required>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">This PIN will be
+                        required if face ID fails.</small>
                 </div>
-                
-                <button type="button" class="btn btn-primary" onclick="startFaceCapture()">Next: Face Training</button>
+
+                <div class="step-actions">
+                    <button type="button" class="btn btn-primary" onclick="startFaceCapture()">
+                        Next: Face Training <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
-            
+
+            <!-- Step 2: Face Training -->
             <div class="step step-2">
-                <h3>Step 2: Face Training</h3>
-                <p>📸 We'll capture 50 images of your face for accurate recognition.</p>
-                <p><strong>⚠️ Important Tips:</strong></p>
-                <ul style="text-align: left; margin: 1rem 0;">
-                    <li>✅ Ensure good lighting (face the light source)</li>
-                    <li>✅ Look directly at the camera</li>
-                    <li>✅ Keep your face centered in the frame</li>
-                    <li>✅ Move your head slightly during capture (different angles)</li>
-                    <li>✅ Maintain neutral expression</li>
-                    <li>❌ Avoid wearing sunglasses or face masks</li>
-                </ul>
-                
-                <div class="camera-container">
-                    <video id="video" autoplay></video>
+                <h3><i class="fas fa-robot"></i> AI Face Training</h3>
+
+                <div class="training-info">
+                    <p><i class="fas fa-info-circle"></i> We need to scan your face from different angles to build your
+                        secure biometric profile.</p>
+                </div>
+
+                <div class="camera-wrapper">
+                    <video id="video" autoplay muted playsinline></video>
                     <canvas id="canvas" style="display: none;"></canvas>
+                    <div class="scan-overlay training"></div>
                 </div>
-                
-                <div class="capture-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill"></div>
+
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Training Progress</span>
+                        <span id="progress-text">0%</span>
                     </div>
-                    <p id="capture-status">Click "Start Capture" to begin face training</p>
-                    <p id="capture-count">Valid faces captured: <span id="count">0</span>/50</p>
-                    <small>💡 Only clear face images are saved for maximum accuracy</small>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="training-status text-center" id="capture-status">
+                        Ready to start
+                    </div>
                 </div>
-                
-                <div class="capture-controls">
-                    <button type="button" class="btn btn-primary" id="start-capture" onclick="startCapturing()">Start Capture</button>
-                    <button type="button" class="btn btn-secondary" id="stop-capture" onclick="stopCapturing()" style="display: none;">Stop Capture</button>
+
+                <div class="step-actions center">
+                    <button type="button" class="btn btn-primary" id="start-capture" onclick="startCapturing()">
+                        <i class="fas fa-play"></i> Start Scanning
+                    </button>
+                    <button type="button" class="btn btn-danger" id="stop-capture" onclick="stopCapturing()"
+                        style="display: none;">
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                    <button type="button" class="btn btn-success" id="complete-registration"
+                        onclick="completeRegistration()" style="display: none;">
+                        <i class="fas fa-check-double"></i> Complete Setup
+                    </button>
                 </div>
-                
                 <div id="face-status" class="status-message"></div>
-                
-                <button type="button" class="btn btn-primary" id="complete-registration" onclick="completeRegistration()" style="display: none;">Complete Registration</button>
             </div>
         </div>
-        
-        <p class="auth-link">
-            Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+
+        <p class="auth-footer text-center mt-4">
+            Already have an ID? <a href="{{ url_for('login') }}" class="link-highlight">Login here</a>
         </p>
     </div>
 </div>
+
+<style>
+    /* Extended styles for signup */
+    .auth-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 100px);
+        padding: 2rem 0;
+    }
+
+    .auth-card.extended-card {
+        max-width: 550px;
+    }
+
+    /* Progress Indicators */
+    .login-progress {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 3rem;
+        position: relative;
+    }
+
+    .progress-step {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        border: 2px solid var(--glass-border);
+        transition: 0.4s ease;
+        z-index: 2;
+    }
+
+    .progress-step.active {
+        background: var(--primary-color);
+        color: #000;
+        box-shadow: 0 0 15px var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    .progress-line {
+        width: 100px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        margin: 0 5px;
+    }
+
+    /* Steps */
+    .step {
+        display: none;
+        animation: fadeIn 0.5s ease;
+    }
+
+    .step.active {
+        display: block;
+    }
+
+    .step h3 {
+        text-align: center;
+        margin-bottom: 2rem;
+        font-size: 1.4rem;
+    }
+
+    /* Training Specific */
+    .training-info {
+        background: rgba(0, 242, 255, 0.05);
+        border: 1px solid var(--primary-color);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        color: var(--primary-color);
+    }
+
+    .camera-wrapper {
+        position: relative;
+        width: 100%;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        border: 2px solid var(--glass-border);
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        aspect-ratio: 4/3;
+        background: black;
+    }
+
+    #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .scan-overlay.training {
+        position: absolute;
+        top: 15%;
+        left: 25%;
+        right: 25%;
+        bottom: 15%;
+        border: 2px dashed rgba(255, 255, 255, 0.4);
+        border-radius: 50%;
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        transition: 0.3s;
+    }
+
+    .scan-overlay.training.active {
+        border-color: var(--primary-color);
+        border-style: solid;
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.7);
+    }
+
+    .progress-container {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+
+    .progress-track {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        transition: width 0.3s ease;
+    }
+
+    .training-status {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .step-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .link-highlight {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .status-message {
+        margin-top: 1rem;
+        text-align: center;
+        min-height: 20px;
+        font-size: 0.9rem;
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let currentStep = 1;
-let stream;
-let captureInterval;
-let capturedImages = [];
-let isCapturing = false;
+    let currentStep = 1;
+    let stream;
+    let captureInterval;
+    let capturedImages = [];
+    let isCapturing = false;
 
-function showStep(step) {
-    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.querySelector(`.step-${step}`).classList.add('active');
-    currentStep = step;
-}
-
-function startFaceCapture() {
-    const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const pin = document.getElementById('pin').value;
-    
-    if (!username || !email || !pin || pin.length !== 4) {
-        alert('Please fill in all fields correctly');
-        return;
+    function updateProgress(step) {
+        document.querySelectorAll('.progress-step').forEach((el, idx) => {
+            if (idx + 1 <= step) el.classList.add('active');
+            else el.classList.remove('active');
+        });
     }
-    
-    showStep(2);
-    startCamera();
-}
 
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ 
-        video: { 
-            width: 640, 
-            height: 480,
-            facingMode: 'user'
-        } 
-    })
-    .then(function(mediaStream) {
-        stream = mediaStream;
+    function startFaceCapture() {
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const pin = document.getElementById('pin').value.trim();
+
+        if (!username || !email || !pin || pin.length !== 4) {
+            Toast.show('Please fill in all fields correctly', 'error');
+            return;
+        }
+
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.querySelector('.step-2').classList.add('active');
+        currentStep = 2;
+        updateProgress(2);
+
+        startCamera();
+    }
+
+    function startCamera() {
         const video = document.getElementById('video');
-        video.srcObject = stream;
-        document.getElementById('capture-status').textContent = 'Camera ready! Click "Start Capture" to begin';
-    })
-    .catch(function(error) {
-        console.error('Camera error:', error);
-        alert('Camera access denied or not available');
-    });
-}
 
-function startCapturing() {
-    if (isCapturing) return;
-    
-    isCapturing = true;
-    capturedImages = [];
-    
-    document.getElementById('start-capture').style.display = 'none';
-    document.getElementById('stop-capture').style.display = 'inline-block';
-    document.getElementById('capture-status').textContent = '📸 Capturing... Please move your head slightly (left, right, up, down)';
-    
-    captureInterval = setInterval(() => {
-        if (capturedImages.length < 50) {
-            captureImage();
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+                .then(function (mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                    document.getElementById('capture-status').textContent = 'Camera ready. Position your face in the circle.';
+                })
+                .catch(function (error) {
+                    console.error('Camera error:', error);
+                    Toast.show('Camera access denied.', 'error');
+                });
         } else {
-            stopCapturing();
-            if (capturedImages.length >= 5) {
-                document.getElementById('complete-registration').style.display = 'inline-block';
-                document.getElementById('capture-status').textContent = `✅ Capture complete! ${capturedImages.length} images ready. Click "Complete Registration"`;
+            Toast.show('Camera not supported.', 'error');
+        }
+    }
+
+    function startCapturing() {
+        if (isCapturing) return;
+
+        isCapturing = true;
+        capturedImages = [];
+
+        document.getElementById('start-capture').style.display = 'none';
+        document.getElementById('stop-capture').style.display = 'inline-block';
+        document.querySelector('.scan-overlay').classList.add('active');
+
+        document.getElementById('capture-status').innerHTML = '<span style="color: var(--primary-color)">Typing to capture... Move head slightly.</span>';
+
+        captureInterval = setInterval(() => {
+            if (capturedImages.length < 50) {
+                captureImage();
             } else {
-                document.getElementById('capture-status').textContent = '⚠️ Not enough images captured. Please ensure good lighting and try again.';
-                document.getElementById('start-capture').style.display = 'inline-block';
+                stopCapturing();
+                if (capturedImages.length >= 20) { // Require at least 20 decent frames
+                    document.getElementById('complete-registration').style.display = 'inline-block';
+                    document.getElementById('stop-capture').style.display = 'none';
+                    document.getElementById('capture-status').innerHTML = '<span style="color: var(--success)">Training Complete! Click "Complete Setup"</span>';
+                    Toast.show('Face training complete!', 'success');
+                } else {
+                    document.getElementById('capture-status').textContent = 'Not enough clear images. Try again.';
+                    document.getElementById('start-capture').style.display = 'inline-block';
+                }
             }
+        }, 200);
+    }
+
+    function stopCapturing() {
+        isCapturing = false;
+        if (captureInterval) {
+            clearInterval(captureInterval);
         }
-    }, 300); // Capture every 300ms (slower for better quality)
-}
+        document.querySelector('.scan-overlay').classList.remove('active');
 
-function stopCapturing() {
-    isCapturing = false;
-    if (captureInterval) {
-        clearInterval(captureInterval);
+        if (document.getElementById('complete-registration').style.display === 'none') {
+            document.getElementById('start-capture').style.display = 'inline-block';
+            document.getElementById('stop-capture').style.display = 'none';
+        }
     }
-    
-    document.getElementById('start-capture').style.display = 'inline-block';
-    document.getElementById('stop-capture').style.display = 'none';
-    
-    if (capturedImages.length < 50) {
-        document.getElementById('capture-status').textContent = `Capture stopped. ${capturedImages.length} images captured.`;
-    }
-}
 
-function captureImage() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    // Use higher quality for better face recognition
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
-    capturedImages.push(imageData);
-    
-    // Update progress
-    const count = capturedImages.length;
-    document.getElementById('count').textContent = count;
-    document.getElementById('progress-fill').style.width = (count / 50) * 100 + '%';
-    
-    // Add visual feedback
-    canvas.style.display = 'block';
-    setTimeout(() => {
-        canvas.style.display = 'none';
-    }, 100);
-}
+    function captureImage() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
 
-function completeRegistration() {
-    if (capturedImages.length < 5) {
-        alert('Please capture at least 5 images for registration');
-        return;
-    }
-    
-    const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const pin = document.getElementById('pin').value;
-    
-    document.getElementById('face-status').innerHTML = '<span class="info">Processing registration... This may take a moment.</span>';
-    
-    fetch('/signup_with_training', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username,
-            email: email,
-            pin: pin,
-            face_images: capturedImages
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const statusEl = document.getElementById('face-status');
-        if (data.success) {
-            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
-            stopCamera();
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.95);
+        capturedImages.push(imageData);
+
+        // Update progress
+        const count = capturedImages.length;
+        const percentage = Math.round((count / 50) * 100);
+
+        document.getElementById('progress-text').textContent = percentage + '%';
+        document.getElementById('progress-fill').style.width = percentage + '%';
+
+        // Flash effect
+        if (count % 5 === 0) {
+            document.querySelector('.scan-overlay').style.borderColor = 'white';
             setTimeout(() => {
-                window.location.href = '/login';
-            }, 2000);
-        } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+                document.querySelector('.scan-overlay').style.borderColor = 'var(--primary-color)';
+            }, 50);
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('face-status').innerHTML = '<span class="error">❌ Registration failed. Please try again.</span>';
-    });
-}
-
-function stopCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
     }
-}
+
+    function completeRegistration() {
+        const username = document.getElementById('username').value;
+        const email = document.getElementById('email').value;
+        const pin = document.getElementById('pin').value;
+        const statusEl = document.getElementById('face-status');
+        const btn = document.getElementById('complete-registration');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        statusEl.innerHTML = '<span class="info">Analyzing face data and creating secure ID...</span>';
+
+        fetch('/signup_with_training', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                email: email,
+                pin: pin,
+                face_images: capturedImages
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusEl.innerHTML = '<span class="success">✅ Registration Successful!</span>';
+                    Toast.show('Account created successfully!', 'success');
+                    stopCamera();
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-double"></i> Complete Setup';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusEl.innerHTML = '<span class="error">❌ Server Error</span>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-double"></i> Complete Setup';
+            });
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
 </script>
 {% endblock %}

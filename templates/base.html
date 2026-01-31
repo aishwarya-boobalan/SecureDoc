@@ -1,43 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Face Auth Document Locker{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Modern CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modern.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% block styles %}{% endblock %}
+
+    <style>
+        /* Enterprise Layout */
+        body {
+            min-height: 100vh;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        .nav-brand {
+            font-size: 1.5rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+    </style>
 </head>
+
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <h1 class="nav-brand">🔐 SecureDoc</h1>
-            <div class="nav-links">
-                {% if session.logged_in %}
-                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                    <a href="{{ url_for('logout') }}">Logout</a>
-                {% else %}
-                    <a href="{{ url_for('index') }}">Home</a>
-                    <a href="{{ url_for('login') }}">Login</a>
-                    <a href="{{ url_for('signup') }}">Sign Up</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
 
-    <main class="main-content">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">{{ message }}</div>
-                    {% endfor %}
+    <body>
+        <nav class="navbar">
+            <div class="nav-container">
+                <h1 class="nav-brand" onclick="window.location.href='{{ url_for('index') }}'">
+                    <i class="fas fa-shield-alt"></i> SecureDoc
+                </h1>
+                <div class="nav-links">
+                    {% if session.logged_in %}
+                    <a href="{{ url_for('dashboard') }}"><i class="fas fa-columns"></i> Dashboard</a>
+                    <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    {% else %}
+                    <a href="{{ url_for('index') }}"><i class="fas fa-home"></i> Home</a>
+                    <a href="{{ url_for('login') }}"><i class="fas fa-sign-in-alt"></i> Login</a>
+                    <a href="{{ url_for('signup') }}" class="btn btn-primary"
+                        style="padding: 0.5rem 1rem; margin-left: 1rem;">Sign Up</a>
+                    {% endif %}
                 </div>
-            {% endif %}
-        {% endwith %}
+            </div>
+        </nav>
 
-        {% block content %}{% endblock %}
-    </main>
+        <main class="main-content">
+            <!-- Hidden flash messages for JS to pick up -->
+            <div class="flash-messages" style="display: none;">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+            </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-    {% block scripts %}{% endblock %}
-</body>
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- UI Interaction Script -->
+        <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+        {% block scripts %}{% endblock %}
+    </body>
+
 </html>

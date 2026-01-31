@@ -2,169 +2,408 @@
 
 {% block title %}Login - Face Auth Document Locker{% endblock %}
 
-
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <h2>Login</h2>
-        
-        <div class="login-steps">
+<div class="auth-wrapper">
+    <div class="glass-card auth-card">
+        <h2 class="text-center">Secure Login</h2>
+        <p class="text-center mb-4" style="color: var(--text-secondary)">Identify yourself to access your vault</p>
+
+        <div class="login-progress">
+            <div class="progress-step active" id="prog-1">1</div>
+            <div class="progress-line"></div>
+            <div class="progress-step" id="prog-2">2</div>
+            <div class="progress-line"></div>
+            <div class="progress-step" id="prog-3">3</div>
+        </div>
+
+        <div class="login-steps-container">
+            <!-- Step 1: Username -->
             <div class="step step-1 active">
-                <h3>Step 1: Enter Username</h3>
+                <h3><i class="fas fa-user"></i> Identity Check</h3>
                 <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" required>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="startFaceVerification()">Next</button>
+                <div class="step-actions">
+                    <button type="button" class="btn btn-primary" onclick="startFaceVerification()">
+                        Next Step <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
             </div>
-            
+
+            <!-- Step 2: Face Auth -->
             <div class="step step-2">
-                <h3>Step 2: Face Verification</h3>
-                <p><strong>⚠️ Important:</strong> Ensure good lighting and look directly at the camera</p>
-                <div class="camera-container">
-                    <video id="video" autoplay></video>
+                <h3><i class="fas fa-face-viewfinder"></i> Biometric Verify</h3>
+                <p class="instruction-text">Look directly at the camera. Ensure good lighting.</p>
+
+                <div class="camera-wrapper">
+                    <video id="video" autoplay muted playsinline></video>
                     <canvas id="canvas" style="display: none;"></canvas>
+                    <div class="scan-overlay"></div>
+                    <div class="scan-line"></div>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="captureAndVerifyFace()">Verify Face</button>
-                <div id="face-status" class="status-message"></div>
+
+                <div class="step-actions center">
+                    <button type="button" class="btn btn-primary" id="verify-btn" onclick="captureAndVerifyFace()">
+                        <i class="fas fa-camera"></i> Verify Face
+                    </button>
+                    <div id="face-status" class="status-message"></div>
+                </div>
             </div>
-            
+
+            <!-- Step 3: PIN -->
             <div class="step step-3">
-                <h3>Step 3: Enter PIN</h3>
+                <h3><i class="fas fa-key"></i> Security PIN</h3>
                 <div class="form-group">
-                    <label for="pin">4-Digit PIN:</label>
-                    <input type="password" id="pin" pattern="\d{4}" maxlength="4" required>
+                    <label for="pin">Enter 4-Digit PIN</label>
+                    <div class="pin-input-container">
+                        <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="••••" required>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="verifyPin()">Login</button>
+                <div class="step-actions">
+                    <button type="button" class="btn btn-primary" onclick="verifyPin()">
+                        <i class="fas fa-lock-open"></i> Unlock Vault
+                    </button>
+                </div>
                 <div id="pin-status" class="status-message"></div>
             </div>
         </div>
-        
-        <p class="auth-link">
-            Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a>
+
+        <p class="auth-footer text-center mt-4">
+            New here? <a href="{{ url_for('signup') }}" class="link-highlight">Create a Secure Account</a>
         </p>
     </div>
 </div>
+
+<style>
+    /* Auth Specific Styles */
+    .auth-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 100px);
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 450px;
+        padding: 3rem;
+    }
+
+    /* Progress Indicators */
+    .login-progress {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 3rem;
+        position: relative;
+    }
+
+    .progress-step {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        border: 2px solid var(--glass-border);
+        transition: 0.4s ease;
+        z-index: 2;
+    }
+
+    .progress-step.active {
+        background: var(--primary-color);
+        color: #000;
+        box-shadow: 0 0 15px var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    .progress-line {
+        width: 50px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        margin: 0 5px;
+    }
+
+    /* Steps */
+    .step {
+        display: none;
+        animation: fadeIn 0.5s ease;
+    }
+
+    .step.active {
+        display: block;
+    }
+
+    .step h3 {
+        text-align: center;
+        margin-bottom: 2rem;
+        font-size: 1.4rem;
+    }
+
+    .instruction-text {
+        text-align: center;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Camera UI */
+    .camera-wrapper {
+        position: relative;
+        width: 100%;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        border: 2px solid var(--glass-border);
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        aspect-ratio: 4/3;
+        background: black;
+    }
+
+    #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .scan-overlay {
+        position: absolute;
+        top: 20%;
+        left: 20%;
+        right: 20%;
+        bottom: 20%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 20px;
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+    }
+
+    .scan-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: var(--primary-color);
+        box-shadow: 0 0 10px var(--primary-color);
+        animation: scan 2s linear infinite;
+        display: none;
+        /* Shown during verification */
+    }
+
+    @keyframes scan {
+        0% {
+            top: 0;
+        }
+
+        100% {
+            top: 100%;
+        }
+    }
+
+    .pin-input-container input {
+        font-size: 1.5rem;
+        letter-spacing: 0.5rem;
+        text-align: center;
+    }
+
+    .link-highlight {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .link-highlight:hover {
+        text-decoration: underline;
+    }
+
+    .step-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+    }
+
+    .status-message {
+        margin-top: 1rem;
+        text-align: center;
+        min-height: 20px;
+        font-size: 0.9rem;
+    }
+
+    .status-message .success {
+        color: var(--success);
+    }
+
+    .status-message .error {
+        color: var(--error);
+    }
+
+    .status-message .info {
+        color: var(--primary-color);
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let currentStep = 1;
-let stream;
+    let currentStep = 1;
+    let stream;
 
-function showStep(step) {
-    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.querySelector(`.step-${step}`).classList.add('active');
-    currentStep = step;
-}
-
-function startFaceVerification() {
-    const username = document.getElementById('username').value;
-    if (!username) {
-        alert('Please enter username');
-        return;
-    }
-    
-    showStep(2);
-    startCamera();
-}
-
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function(mediaStream) {
-            stream = mediaStream;
-            const video = document.getElementById('video');
-            video.srcObject = stream;
-        })
-        .catch(function(error) {
-            console.error('Camera error:', error);
-            alert('Camera access denied or not available');
+    function updateProgress(step) {
+        document.querySelectorAll('.progress-step').forEach((el, idx) => {
+            if (idx + 1 <= step) el.classList.add('active');
+            else el.classList.remove('active');
         });
-}
-
-function captureAndVerifyFace() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    // Use high quality image for accurate verification
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
-    const username = document.getElementById('username').value;
-    
-    const statusEl = document.getElementById('face-status');
-    statusEl.innerHTML = '<span class="info">🔍 Verifying face... Please wait...</span>';
-    
-    fetch('/verify_face', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username,
-            image: imageData
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
-            stopCamera();
-            showStep(3);
-        } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + ' Please ensure good lighting and try again.</span>';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        statusEl.innerHTML = '<span class="error">❌ Verification failed. Please try again.</span>';
-    });
-}
-
-function verifyPin() {
-    const pin = document.getElementById('pin').value;
-    const username = document.getElementById('username').value;
-    
-    if (pin.length !== 4) {
-        alert('Please enter a 4-digit PIN');
-        return;
     }
-    
-    fetch('/verify_pin', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            username: username,
-            pin: pin
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        const statusEl = document.getElementById('pin-status');
-        if (data.success) {
-            statusEl.innerHTML = '<span class="success">✅ ' + data.message + '</span>';
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 1000);
-        } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        document.getElementById('pin-status').innerHTML = '<span class="error">❌ Login failed</span>';
-    });
-}
 
-function stopCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    function showStep(step) {
+        // Check constraints before moving
+        if (step === 2 && !document.getElementById('username').value) {
+            Toast.show("Please enter your username", "error");
+            return;
+        }
+
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.querySelector(`.step-${step}`).classList.add('active');
+        currentStep = step;
+        updateProgress(step);
     }
-}
+
+    function startFaceVerification() {
+        const username = document.getElementById('username').value.trim();
+        if (!username) {
+            Toast.show('Please enter username', 'error');
+            return;
+        }
+
+        showStep(2);
+        startCamera();
+    }
+
+    function startCamera() {
+        const video = document.getElementById('video');
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(function (mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(function (error) {
+                    console.error('Camera error:', error);
+                    Toast.show('Camera access denied. Please allow camera permissions.', 'error');
+                });
+        } else {
+            Toast.show('Camera API not supported in this browser.', 'error');
+        }
+    }
+
+    function captureAndVerifyFace() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scanLine = document.querySelector('.scan-line');
+        const verifyBtn = document.getElementById('verify-btn');
+        const statusEl = document.getElementById('face-status');
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        // UI Feedback
+        scanLine.style.display = 'block';
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+        statusEl.innerHTML = '<span class="info">Verifying biometrics...</span>';
+
+        const imageData = canvas.toDataURL('image/jpeg', 0.95);
+        const username = document.getElementById('username').value;
+
+        fetch('/verify_face', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                image: imageData
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                scanLine.style.display = 'none';
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-camera"></i> Verify Face';
+
+                if (data.success) {
+                    statusEl.innerHTML = '<span class="success"><i class="fas fa-check-circle"></i> Identity Verified</span>';
+                    Toast.show(data.message, 'success');
+                    stopCamera();
+                    setTimeout(() => showStep(3), 1000);
+                } else {
+                    statusEl.innerHTML = '<span class="error"><i class="fas fa-times-circle"></i> Verification Failed</span>';
+                    Toast.show(data.message + ' Try better lighting.', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                scanLine.style.display = 'none';
+                verifyBtn.disabled = false;
+                verifyBtn.innerHTML = '<i class="fas fa-camera"></i> Verify Face';
+                statusEl.innerHTML = '<span class="error">System Error</span>';
+                Toast.show('System error during verification', 'error');
+            });
+    }
+
+    function verifyPin() {
+        const pin = document.getElementById('pin').value;
+        const username = document.getElementById('username').value;
+
+        if (pin.length !== 4) {
+            Toast.show('Please enter a 4-digit PIN', 'error');
+            return;
+        }
+
+        fetch('/verify_pin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                pin: pin
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                const statusEl = document.getElementById('pin-status');
+                if (data.success) {
+                    statusEl.innerHTML = '<span class="success">✅ Verified</span>';
+                    Toast.show('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    statusEl.innerHTML = '<span class="error">❌ Invalid PIN</span>';
+                    Toast.show(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Toast.show('Login failed due to system error', 'error');
+            });
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
 </script>
 {% endblock %}

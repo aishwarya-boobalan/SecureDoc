@@ -1,39 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}Welcome - Face Auth Document Locker{% endblock %}
+{% block title %}SecureDoc - Face Auth Document Locker{% endblock %}
 
 {% block content %}
-<div class="hero-section">
-    <div class="hero-content">
-        <h1>🔐 Secure Document Locker</h1>
-        <p>Protect your documents with advanced facial recognition and PIN authentication</p>
-        <div class="hero-buttons">
-            <a href="{{ url_for('signup') }}" class="btn btn-primary">Get Started</a>
-            <a href="{{ url_for('login') }}" class="btn btn-secondary">Login</a>
+<div class="landing-container">
+    <div class="hero-section">
+        <h1 class="hero-title">Secure Your Digital Legacy</h1>
+        <p class="hero-subtitle">Next-generation document protection using biometric face recognition and military-grade
+            encryption.</p>
+
+        <div class="hero-actions">
+            {% if session.logged_in %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-large">
+                <i class="fas fa-columns"></i> Go to Dashboard
+            </a>
+            {% else %}
+            <a href="{{ url_for('signup') }}" class="btn btn-primary btn-large">
+                <i class="fas fa-user-plus"></i> Get Started
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-secondary btn-large">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-id-card-alt"></i></div>
+            <h3>Face Recognition</h3>
+            <p>Advanced biometric authentication powered by ArcFace deep learning models ensuring only YOU can access
+                your files.</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+            <h3>Dual Layer Security</h3>
+            <p>Combines facial verification with a PIN code for maximum security against unauthorized access.</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon"><i class="fas fa-file-contract"></i></div>
+            <h3>Secure Storage</h3>
+            <p>Your documents are encrypted and stored safely. Share them securely with other verified members.</p>
         </div>
     </div>
 </div>
 
-<div class="features-section">
-    <div class="container">
-        <h2>Features</h2>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">👤</div>
-                <h3>Face Recognition</h3>
-                <p>Advanced AI-powered facial recognition using DeepFace technology</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔢</div>
-                <h3>PIN Security</h3>
-                <p>Additional security layer with encrypted PIN verification</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">📁</div>
-                <h3>Secure Storage</h3>
-                <p>Your documents are stored securely and only accessible by you</p>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+    /* Landing Page Specific Styles */
+    .landing-container {
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+        text-align: center;
+        padding: 2rem 0;
+    }
+
+    .hero-section {
+        padding: 4rem 1rem;
+        animation: fadeIn 1s ease-out;
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+        text-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
+    }
+
+    .hero-subtitle {
+        font-size: 1.2rem;
+        color: var(--text-secondary);
+        max-width: 700px;
+        margin: 0 auto 3rem;
+        line-height: 1.6;
+    }
+
+    .hero-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+
+    .btn-large {
+        padding: 1rem 2.5rem;
+        font-size: 1.1rem;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        padding: 4rem 1rem;
+        margin-top: 2rem;
+    }
+
+    .feature-card {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        padding: 2.5rem;
+        border-radius: 20px;
+        transition: 0.3s;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-10px);
+        border-color: var(--primary-color);
+        box-shadow: 0 10px 30px rgba(0, 242, 255, 0.1);
+    }
+
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        -webkit-background-clip: text;
+        background-clip: text;
+        /* Fix lint warning in inline style too */
+        -webkit-text-fill-color: transparent;
+    }
+
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 2.5rem;
+        }
+
+        .hero-actions {
+            flex-direction: column;
+        }
+    }
+</style>
 {% endblock %}

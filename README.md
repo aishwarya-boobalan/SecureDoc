@@ -1,118 +1,51 @@
-# Face Auth Document Locker
+# SecureDoc - Advanced Face Auth Document Vault
 
-A secure document management system using facial recognition and PIN authentication.
+A state-of-the-art secure document sharing platform featuring military-grade access control, biometric authentication, and a next-gen futuristic UI.
 
-## Features
+## 🚀 Key Features
 
-- **Multi-layer Authentication**: Face recognition + PIN verification
-- **Secure Document Storage**: Upload and store documents securely
-- **Face Recognition**: Powered by DeepFace with ArcFace backend
-- **Document Access Control**: Re-authentication required for document access
-- **Modern Web Interface**: Clean, responsive design with Streamlit-like experience
+### 🛡️ Advanced Security
+-   **Biometric Dual-Factor**: Face Recognition (AI/DeepFace) + PIN Code Access.
+-   **Duress Mode (Panic Protocol)**: Entering the Panic PIN `0000` grants access to a **Fake Empty Dashboard**, hiding your real data in hostage situations.
+-   **Matrix Access Logs**: Real-time, scrolling forensic logs monitoring all system activity.
 
-## Tech Stack
+### 💼 Smart Sharing
+-   **Self-Destructing Shares**: Share documents with "Top Secret" clearance that **auto-delete after 1 view**.
+-   **Time-Limited Access**: "Confidential" shares expire automatically after 24 hours.
+-   **Group Sharing**: Share with multiple users instantly using a chip-based interface.
 
-- **Backend**: Flask
-- **Face Recognition**: DeepFace
-- **Database**: SQLite
-- **Frontend**: HTML, CSS, JavaScript
-- **Security**: bcrypt for PIN hashing
+### 💎 Premium UI Experience
+-   **Aurora Theme**: Deep, animated 3D background with neon aesthetics.
+-   **Glassmorphism 2.0**: High-end frosted glass cards with **3D Tilt & Glare** effects.
+-   **Seamless Interaction**: Zero-latency transitions and polished micro-interactions.
 
-## Setup Instructions
+## 🛠️ Tech Stack
 
-### Windows
-```bash
-# Run the setup script
-setup.bat
+-   **Frontend**: HTML5, CSS3 (Modern Variables, Animations), Vanilla JS (Vanilla-Tilt.js)
+-   **Backend**: Flask (Python)
+-   **AI/ML**: DeepFace (TensorFlow/Keras backend) for Face Verification.
+-   **Database**: SQLite (Zero-config, fast relational data)
 
-# Or manually:
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
+## ⚡ Quick Start
 
-### macOS/Linux
-```bash
-# Run the setup script
-chmod +x setup.sh
-./setup.sh
+1.  **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-# Or manually:
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
+2.  **Run Application**
+    ```bash
+    python app.py
+    ```
 
-## Usage
+3.  **Access**
+    Open `http://localhost:5000`
 
-1. **Sign Up**: Register with username, email, PIN, and face image
-2. **Login**: 3-step authentication (username → face → PIN)
-3. **Upload Documents**: Secure document storage after authentication
-4. **Access Documents**: Re-authenticate with face + PIN to view documents
+## 📖 Pro Tips
 
-## Security Features
+-   **Panic PIN**: The default Panic PIN is `0000`. Use this to test the **Duress Mode**.
+-   **Logs**: Watch the bottom green terminal for live system events.
+-   **3D Effect**: Move your mouse over cards to see the premium depth effect.
 
-- PIN hashing with bcrypt
-- Face encoding storage using DeepFace
-- Session management
-- File type and size validation
-- Secure file storage
-
-## Supported File Types
-
-- Documents: PDF, DOCX, DOC, TXT
-- Images: PNG, JPG, JPEG, GIF
-- Maximum file size: 16MB
-
-## Project Structure
-
-```
-face_auth_app/
-├── app.py                 # Main Flask application
-├── requirements.txt       # Python dependencies
-├── users.db              # SQLite database (created automatically)
-├── templates/            # HTML templates
-│   ├── base.html
-│   ├── index.html
-│   ├── signup.html
-│   ├── login.html
-│   ├── dashboard.html
-│   └── access_document.html
-├── static/               # Static files
-│   ├── css/
-│   │   └── style.css
-│   ├── js/
-│   │   └── script.js
-│   └── temp/            # Temporary files
-├── uploads/             # Document storage
-├── face_database/       # Face encodings storage
-└── README.md
-```
-
-## API Endpoints
-
-- `GET /` - Home page
-- `GET/POST /signup` - User registration
-- `GET /login` - Login page
-- `POST /verify_face` - Face verification
-- `POST /verify_pin` - PIN verification
-- `GET /dashboard` - User dashboard
-- `POST /upload_document` - Document upload
-- `GET /access_document/<id>` - Document access page
-- `POST /verify_document_access` - Document access verification
-- `GET /download_document/<id>` - Document download
-- `GET /logout` - User logout
-
-## Security Considerations
-
-- Change the Flask secret key in production
-- Use HTTPS in production
-- Consider additional rate limiting
-- Implement proper error logging
-- Add CSRF protection for production use
-
-## License
-
-This project is for educational purposes. Please ensure compliance with privacy laws when using facial recognition technology.
+---
+*Built for the Future of Secure Data Sharing.*
