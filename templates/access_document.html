@@ -1,157 +1,612 @@
 {% extends "base.html" %}
-
-{% block title %}Access Document - Face Auth Document Locker{% endblock %}
+{% block title %}Access Document - SecureDoc{% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <h2>🔐 Document Access Verification</h2>
-        <p><strong>⚠️ Strict verification required to access this document</strong></p>
-        {% if is_shared %}
-        <div class="shared-indicator">
-            <p style="color: #28a745; font-weight: bold;">📤 Shared Document Access</p>
+<div class="auth-wrapper">
+    <div class="glass-card access-card">
+        <h2 class="neon-title text-center">🔐 Document Access</h2>
+        <p class="text-secondary text-center mb-3">
+            {% if is_shared %}<span style="color:#00ff88">📤 Shared Document</span> — {% endif %}
+            Multi-factor verification required
+        </p>
+
+        <!-- 2-step access progress -->
+        <div class="acc-progress">
+            <div class="acc-step active" id="ap-1"><i class="fas fa-envelope-open-text"></i></div>
+            <div class="acc-line" id="al-1"></div>
+            <div class="acc-step" id="ap-2"><i class="fas fa-camera"></i></div>
         </div>
-        {% endif %}
-        
-        <div class="verification-steps">
-            <div class="step">
-                <h3>📸 Face Verification</h3>
-                <p><strong>Important Tips:</strong></p>
-                <ul style="text-align: left; margin: 1rem 0; font-size: 0.9rem;">
-                    <li>✅ Ensure good lighting (same as registration)</li>
-                    <li>✅ Look directly at the camera</li>
-                    <li>✅ Keep your face centered</li>
-                    <li>❌ No sunglasses or masks</li>
-                </ul>
-                <div class="camera-container">
-                    <video id="video" autoplay></video>
-                    <canvas id="canvas" style="display: none;"></canvas>
+        <div class="acc-labels"><span>Email OTP</span><span>Face Scan</span></div>
+
+        <!-- Step 1: OTP -->
+        <div class="acc-pane pane-1 active">
+            <h3><i class="fas fa-envelope-open-text"></i> Email Verification</h3>
+            <div class="otp-box">
+                <i class="fas fa-mailbox otp-icon neon-pulse"></i>
+                <p id="otp-sent-label" class="text-secondary">Click below to receive your OTP</p>
+                <div id="otp-digit-row" class="otp-inputs" style="display:none">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
                 </div>
-                <button type="button" class="btn btn-primary" id="start-camera-btn" onclick="startCamera()">Start Camera</button>
             </div>
-            
-            <button type="button" class="btn btn-primary" onclick="verifyAccess()">Verify Face & Access Document</button>
+            <div class="step-actions">
+                <button class="btn btn-primary ripple-btn" id="send-otp-btn" onclick="sendAccessOtp()">
+                    <i class="fas fa-paper-plane"></i> Send OTP to Email
+                </button>
+                <button class="btn btn-primary ripple-btn" id="verify-otp-btn" style="display:none"
+                    onclick="verifyAccessOtp()">
+                    <i class="fas fa-check-circle"></i> Verify OTP
+                </button>
+            </div>
+            <div class="resend-row">
+                <span id="resend-timer" style="display:none;color:rgba(255,255,255,0.5)">Resend in <span
+                        id="resend-count">60</span>s</span>
+                <a href="#" id="resend-link" style="display:none;color:#00f2ff;font-weight:600;text-decoration:none"
+                    onclick="resendAccessOtp(event)">Resend OTP</a>
+            </div>
+            <div id="otp-status" class="status-message"></div>
+        </div>
+
+        <!-- Step 2: Face -->
+        <div class="acc-pane pane-2">
+            <h3><i class="fas fa-camera"></i> Face Verification</h3>
+            <p class="hint-text">Look directly at the camera with good lighting.</p>
+            <div class="camera-wrapper">
+                <video id="video" autoplay muted playsinline></video>
+                <canvas id="canvas" style="display:none"></canvas>
+                <div class="scan-overlay"></div>
+                <div class="scan-line"></div>
+                <div class="face-grid"></div>
+            </div>
+            <div class="step-actions">
+                <button class="btn btn-primary ripple-btn" id="face-btn" onclick="verifyAccess()">
+                    <i class="fas fa-shield-halved"></i> Verify &amp; Open Document
+                </button>
+            </div>
             <div id="access-status" class="status-message"></div>
         </div>
-        
-        <p class="auth-link">
-            <a href="{{ url_for('dashboard') }}">← Back to Dashboard</a>
+
+        <p class="text-center mt-4">
+            <a href="{{ url_for('dashboard') }}" class="link-highlight"><i class="fas fa-arrow-left"></i> Back to
+                Dashboard</a>
         </p>
     </div>
 </div>
+
+<style>
+    .auth-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 100px);
+        padding: 2rem 0;
+    }
+
+    .access-card {
+        width: 100%;
+        max-width: 460px;
+        padding: 2.5rem;
+        animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    .neon-title {
+        font-size: 1.6rem;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .text-secondary {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .mb-3 {
+        margin-bottom: 1rem;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem;
+    }
+
+    /* Progress */
+    .acc-progress {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 0.3rem;
+    }
+
+    .acc-labels {
+        display: flex;
+        justify-content: center;
+        gap: 80px;
+        margin-bottom: 2rem;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .acc-step {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.4s;
+        flex-shrink: 0;
+        z-index: 2;
+    }
+
+    .acc-step.active {
+        background: linear-gradient(135deg, #00f2ff, #bd00ff);
+        color: #000;
+        border-color: transparent;
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.5);
+        transform: scale(1.1);
+    }
+
+    .acc-step.done {
+        background: rgba(0, 255, 136, 0.1);
+        color: #00ff88;
+        border-color: #00ff88;
+        transform: scale(1);
+    }
+
+    .acc-line {
+        flex: 1;
+        max-width: 100px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.07);
+        margin: 0 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .acc-line.filled::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        animation: fillLine 0.5s ease forwards;
+    }
+
+    @keyframes fillLine {
+        from {
+            width: 0
+        }
+
+        to {
+            width: 100%
+        }
+    }
+
+    /* Panes */
+    .acc-pane {
+        display: none;
+        animation: fadeSlide 0.4s ease;
+    }
+
+    .acc-pane.active {
+        display: block;
+    }
+
+    @keyframes fadeSlide {
+        from {
+            opacity: 0;
+            transform: translateX(20px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0)
+        }
+    }
+
+    .acc-pane h3 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+        background: linear-gradient(90deg, #fff, #00f2ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hint-text {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* OTP */
+    .otp-box {
+        text-align: center;
+        padding: 1rem 0;
+    }
+
+    .otp-icon {
+        font-size: 3rem;
+        color: #00f2ff;
+        display: block;
+        margin-bottom: 0.8rem;
+        filter: drop-shadow(0 0 10px #00f2ff);
+    }
+
+    @keyframes neonPulse {
+
+        0%,
+        100% {
+            opacity: 0.6
+        }
+
+        50% {
+            opacity: 1
+        }
+    }
+
+    .neon-pulse {
+        animation: neonPulse 2s ease-in-out infinite;
+    }
+
+    .otp-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 1.5rem 0;
+    }
+
+    .otp-digit {
+        width: 46px;
+        height: 52px;
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 700;
+        background: rgba(0, 0, 0, 0.4);
+        border: 2px solid rgba(0, 242, 255, 0.25);
+        border-radius: 10px;
+        color: #fff;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .otp-digit:focus {
+        border-color: #00f2ff;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+    }
+
+    .otp-digit.filled {
+        border-color: rgba(0, 242, 255, 0.6);
+        background: rgba(0, 242, 255, 0.08);
+    }
+
+    .resend-row {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+    }
+
+    /* Camera */
+    .camera-wrapper {
+        position: relative;
+        width: 100%;
+        border-radius: 15px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+        border: 2px solid rgba(0, 242, 255, 0.3);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.12);
+        aspect-ratio: 4/3;
+        background: #000;
+    }
+
+    #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .scan-overlay {
+        position: absolute;
+        top: 15%;
+        left: 15%;
+        right: 15%;
+        bottom: 15%;
+        border: 2px solid rgba(0, 242, 255, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+    }
+
+    .face-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        pointer-events: none;
+    }
+
+    .scan-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #00f2ff, transparent);
+        box-shadow: 0 0 12px #00f2ff;
+        animation: scan 2s linear infinite;
+        display: none;
+    }
+
+    @keyframes scan {
+        0% {
+            top: 0
+        }
+
+        100% {
+            top: 100%
+        }
+    }
+
+    .step-actions {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .status-message {
+        margin-top: 1rem;
+        text-align: center;
+        min-height: 20px;
+        font-size: 0.9rem;
+    }
+
+    .ripple-btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .link-highlight {
+        color: #00f2ff;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .link-highlight:hover {
+        text-decoration: underline;
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let stream;
-const docId = {{ doc_id }};
-const isShared = {{ 'true' if is_shared else 'false' }};
+    const docId = {{ doc_id }};
+    const isShared = {{ 'true' if is_shared else 'false' }};
+    let stream;
+    let resendTimer;
 
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ 
-        video: { 
-            width: 640, 
-            height: 480,
-            facingMode: 'user'
-        } 
-    })
-    .then(function(mediaStream) {
-        stream = mediaStream;
-        const video = document.getElementById('video');
-        video.srcObject = stream;
-        document.getElementById('start-camera-btn').textContent = '✅ Camera Active';
-        document.getElementById('start-camera-btn').disabled = true;
-    })
-    .catch(function(error) {
-        console.error('Camera error:', error);
-        alert('Camera access denied or not available');
+    // ── OTP digit wiring ──────────────────────────────────────────────────────
+    document.querySelectorAll('.otp-digit').forEach((input, i, all) => {
+        input.addEventListener('input', () => {
+            input.value = input.value.replace(/\D/g, '');
+            if (input.value && i < all.length - 1) all[i + 1].focus();
+            input.classList.toggle('filled', !!input.value);
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+        });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') verifyAccessOtp(); });
     });
-}
 
-function verifyAccess() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    if (!stream) {
-        alert('⚠️ Please start camera first');
-        return;
+    function getOtpValue() {
+        return Array.from(document.querySelectorAll('.otp-digit')).map(d => d.value).join('');
     }
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    // Use high quality image for accurate verification (same as login)
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
-    
-    const statusEl = document.getElementById('access-status');
-    statusEl.innerHTML = '<span class="info">🔍 Verifying your identity... Please wait...</span>';
-    
-    fetch('/verify_document_access', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            doc_id: docId,
-            image: imageData,
-            is_shared: isShared
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            statusEl.innerHTML = '<span class="success">✅ Access granted! Loading document...</span>';
-            stopCamera();
-            
-            // Display document content
-            displayDocumentContent(data.content, data.filename, data.is_shared);
-        } else {
-            statusEl.innerHTML = '<span class="error">❌ ' + data.message + ' Ensure good lighting and face the camera directly.</span>';
+
+    // ── Step functions ────────────────────────────────────────────────────────
+    function showPane(n) {
+        document.querySelectorAll('.acc-pane').forEach(p => p.classList.remove('active'));
+        document.querySelector(`.pane-${n}`).classList.add('active');
+        document.querySelectorAll('.acc-step').forEach((el, idx) => {
+            el.classList.remove('active', 'done');
+            if (idx + 1 < n) el.classList.add('done');
+            else if (idx + 1 === n) el.classList.add('active');
+        });
+        document.querySelectorAll('.acc-line').forEach((l, idx) => {
+            l.classList.toggle('filled', idx + 1 < n);
+        });
+        if (n === 2) startCamera();
+    }
+
+    // ── OTP ───────────────────────────────────────────────────────────────────
+    async function sendAccessOtp() {
+        const statusEl = document.getElementById('otp-status');
+        const sendBtn = document.getElementById('send-otp-btn');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        statusEl.innerHTML = '<span style="color:#00f2ff">Sending OTP to your email...</span>';
+
+        try {
+            const res = await fetch('/send_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ purpose: 'access' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('otp-sent-label').textContent = `OTP sent to ${data.masked_email}`;
+                document.getElementById('otp-digit-row').style.display = 'flex';
+                sendBtn.style.display = 'none';
+                document.getElementById('verify-otp-btn').style.display = 'block';
+                statusEl.innerHTML = `<span style="color:#00ff88">✅ ${data.message}</span>`;
+                startResendTimer();
+                document.querySelector('.otp-digit').focus();
+            } else {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send OTP to Email';
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+            }
+        } catch (e) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send OTP to Email';
+            statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Network error</span>';
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        statusEl.innerHTML = '<span class="error">❌ Access verification failed. Please try again.</span>';
-    });
-}
-
-function displayDocumentContent(content, filename, isSharedDoc) {
-    const container = document.querySelector('.auth-card');
-    const shareLabel = isSharedDoc ? ' (Shared Document)' : '';
-    
-    container.innerHTML = `
-        <h2>📄 Document: ${filename}${shareLabel}</h2>
-        <div class="document-content">
-            <pre style="white-space: pre-wrap; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #dee2e6; font-family: 'Courier New', monospace; max-height: 500px; overflow-y: auto;">${content}</pre>
-        </div>
-        <div style="margin-top: 2rem;">
-            <button onclick="downloadDocument('${filename}', \`${content}\`)" class="btn btn-primary">💾 Download</button>
-            <a href="/dashboard" class="btn btn-secondary">← Back to Dashboard</a>
-        </div>
-    `;
-}
-
-function downloadDocument(filename, content) {
-    const element = document.createElement('a');
-    const file = new Blob([content], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = filename;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-}
-
-function stopCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
     }
-}
 
-// Start camera automatically when page loads
-window.onload = function() {
-    startCamera();
-};
+    async function verifyAccessOtp() {
+        const otp = getOtpValue();
+        const statusEl = document.getElementById('otp-status');
+        if (otp.length !== 6) { Toast.show('Enter the 6-digit OTP.', 'error'); return; }
+
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Verifying...</span>';
+
+        try {
+            const res = await fetch('/verify_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp, purpose: 'access' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:#00ff88">✅ OTP Verified! Now verify your face.</span>';
+                Toast.show('OTP verified! Proceed to face scan.', 'success');
+                clearInterval(resendTimer);
+                setTimeout(() => showPane(2), 800);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+                Toast.show(data.message, 'error');
+            }
+        } catch (e) { statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Network error</span>'; }
+    }
+
+    function startResendTimer() {
+        let sec = 60;
+        document.getElementById('resend-timer').style.display = 'inline';
+        document.getElementById('resend-link').style.display = 'none';
+        clearInterval(resendTimer);
+        resendTimer = setInterval(() => {
+            sec--;
+            document.getElementById('resend-count').textContent = sec;
+            if (sec <= 0) {
+                clearInterval(resendTimer);
+                document.getElementById('resend-timer').style.display = 'none';
+                document.getElementById('resend-link').style.display = 'inline';
+            }
+        }, 1000);
+    }
+
+    async function resendAccessOtp(e) {
+        e.preventDefault();
+        const res = await fetch('/send_otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purpose: 'access' }) });
+        const data = await res.json();
+        Toast.show(data.message, data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('otp-sent-label').textContent = `OTP sent to ${data.masked_email}`;
+            startResendTimer();
+        }
+    }
+
+    // ── Face & Document access ────────────────────────────────────────────────
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+            .then(s => { stream = s; document.getElementById('video').srcObject = s; })
+            .catch(() => Toast.show('Camera access denied.', 'error'));
+    }
+
+    function verifyAccess() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scanLine = document.querySelector('.scan-line');
+        const faceBtn = document.getElementById('face-btn');
+        const statusEl = document.getElementById('access-status');
+
+        if (!stream) { Toast.show('Camera not started.', 'error'); return; }
+
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        scanLine.style.display = 'block';
+        faceBtn.disabled = true;
+        faceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+        statusEl.innerHTML = '<span style="color:#00f2ff">🔍 Verifying identity...</span>';
+
+        fetch('/verify_document_access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ doc_id: docId, image: canvas.toDataURL('image/jpeg', 0.95), is_shared: isShared })
+        })
+            .then(r => r.json())
+            .then(data => {
+                scanLine.style.display = 'none';
+                if (data.success) {
+                    statusEl.innerHTML = '<span style="color:#00ff88">✅ Access Granted! Loading document...</span>';
+                    if (stream) stream.getTracks().forEach(t => t.stop());
+                    displayDocumentContent(data.content, data.filename, data.is_shared);
+                } else {
+                    faceBtn.disabled = false;
+                    faceBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify & Open Document';
+                    statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+                    Toast.show(data.message, 'error');
+                }
+            })
+            .catch(() => {
+                scanLine.style.display = 'none';
+                faceBtn.disabled = false;
+                faceBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify & Open Document';
+                statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Access verification failed.</span>';
+            });
+    }
+
+    function displayDocumentContent(content, filename, isSharedDoc) {
+        const container = document.querySelector('.access-card');
+        const label = isSharedDoc ? ' <span style="color:#00ff88;font-size:0.8rem">(Shared)</span>' : '';
+        container.innerHTML = `
+      <h2 class="neon-title text-center">📄 ${filename}${label}</h2>
+      <div style="background:rgba(0,0,0,0.5);border:1px solid rgba(0,242,255,0.15);border-radius:14px;
+                  padding:1.5rem;margin-top:1.5rem;max-height:460px;overflow-y:auto">
+        <pre style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:0.85rem;
+                    color:#e0e0e0;margin:0">${escapeHtml(content)}</pre>
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button onclick="downloadDocument('${filename}', document.querySelector('pre').textContent)"
+                class="btn btn-primary ripple-btn" style="flex:1">💾 Download</button>
+        <a href="/dashboard" class="btn btn-ghost" style="flex:1;text-align:center;padding:12px;border-radius:8px;text-decoration:none;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)">← Dashboard</a>
+      </div>
+    `;
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function downloadDocument(filename, content) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+        a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
 </script>
 {% endblock %}

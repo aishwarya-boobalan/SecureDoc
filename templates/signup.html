@@ -1,87 +1,111 @@
 {% extends "base.html" %}
-
-{% block title %}Sign Up - Face Auth Document Locker{% endblock %}
+{% block title %}Sign Up - SecureDoc Vault{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
     <div class="glass-card auth-card extended-card">
-        <h2 class="text-center">Create Secure ID</h2>
-        <p class="text-center mb-4" style="color: var(--text-secondary)">Setup your biometric document vault</p>
+        <h2 class="text-center neon-title">Create Secure ID</h2>
+        <p class="text-center mb-4 text-secondary">Setup your biometric document vault</p>
 
-        <!-- Registration Progress -->
-        <div class="login-progress">
-            <div class="progress-step active" id="prog-1">1</div>
-            <div class="progress-line"></div>
-            <div class="progress-step" id="prog-2">2</div>
+        <!-- 3-step progress -->
+        <div class="signup-progress">
+            <div class="prog-step active" id="prog-1"><i class="fas fa-user"></i></div>
+            <div class="prog-line" id="line-1"></div>
+            <div class="prog-step" id="prog-2"><i class="fas fa-envelope-open-text"></i></div>
+            <div class="prog-line" id="line-2"></div>
+            <div class="prog-step" id="prog-3"><i class="fas fa-robot"></i></div>
+        </div>
+        <div class="prog-labels">
+            <span>Info</span><span>Email OTP</span><span>Face Scan</span>
         </div>
 
         <div class="signup-steps-container">
+
             <!-- Step 1: Basic Info -->
             <div class="step step-1 active">
                 <h3><i class="fas fa-user-plus"></i> Basic Information</h3>
-
                 <div class="form-group">
-                    <label for="username">Username</label>
+                    <label>Username</label>
                     <input type="text" id="username" placeholder="Choose a unique username" required>
                 </div>
-
                 <div class="form-group">
-                    <label for="email">Email Address</label>
+                    <label>Email Address</label>
                     <input type="email" id="email" placeholder="your@email.com" required>
                 </div>
-
                 <div class="form-group">
-                    <label for="pin">Security PIN (4-Digits)</label>
+                    <label>Security PIN (4-Digits)</label>
                     <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="••••" required>
-                    <small style="color: var(--text-secondary); display: block; margin-top: 5px;">This PIN will be
-                        required if face ID fails.</small>
+                    <small class="text-secondary">Required alongside face recognition for login.</small>
                 </div>
-
                 <div class="step-actions">
-                    <button type="button" class="btn btn-primary" onclick="startFaceCapture()">
-                        Next: Face Training <i class="fas fa-arrow-right"></i>
+                    <button type="button" class="btn btn-primary ripple-btn" onclick="sendSignupOtp()">
+                        <i class="fas fa-paper-plane"></i> Send Verification OTP
                     </button>
                 </div>
+                <div id="step1-status" class="status-message"></div>
             </div>
 
-            <!-- Step 2: Face Training -->
+            <!-- Step 2: Email OTP -->
             <div class="step step-2">
-                <h3><i class="fas fa-robot"></i> AI Face Training</h3>
-
-                <div class="training-info">
-                    <p><i class="fas fa-info-circle"></i> We need to scan your face from different angles to build your
-                        secure biometric profile.</p>
+                <h3><i class="fas fa-envelope-open-text"></i> Verify Your Email</h3>
+                <div class="otp-box">
+                    <i class="fas fa-mailbox otp-icon neon-pulse"></i>
+                    <p id="otp-sent-text" class="text-secondary">OTP sent to your email</p>
+                    <div class="otp-inputs" id="otp-inputs">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    </div>
                 </div>
+                <div class="step-actions">
+                    <button type="button" class="btn btn-primary ripple-btn" onclick="verifySignupOtp()">
+                        <i class="fas fa-check-circle"></i> Verify OTP
+                    </button>
+                </div>
+                <div class="resend-row">
+                    <span class="text-secondary" id="resend-timer">Resend in <span id="resend-count">60</span>s</span>
+                    <a href="#" id="resend-link" class="hidden link-highlight"
+                        onclick="resendOtp(event, 'signup')">Resend OTP</a>
+                </div>
+                <div id="step2-status" class="status-message"></div>
+            </div>
 
+            <!-- Step 3: Face Training -->
+            <div class="step step-3">
+                <h3><i class="fas fa-robot"></i> AI Face Training</h3>
+                <div class="training-info">
+                    <i class="fas fa-info-circle"></i> We scan your face from multiple angles to build your biometric
+                    profile.
+                </div>
                 <div class="camera-wrapper">
                     <video id="video" autoplay muted playsinline></video>
-                    <canvas id="canvas" style="display: none;"></canvas>
+                    <canvas id="canvas" style="display:none"></canvas>
                     <div class="scan-overlay training"></div>
+                    <div class="face-grid"></div>
                 </div>
-
                 <div class="progress-container">
                     <div class="progress-label">
                         <span>Training Progress</span>
                         <span id="progress-text">0%</span>
                     </div>
                     <div class="progress-track">
-                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
                     </div>
-                    <div class="training-status text-center" id="capture-status">
-                        Ready to start
-                    </div>
+                    <div class="training-status text-center" id="capture-status">Ready to start</div>
                 </div>
-
-                <div class="step-actions center">
-                    <button type="button" class="btn btn-primary" id="start-capture" onclick="startCapturing()">
+                <div class="step-actions">
+                    <button class="btn btn-primary ripple-btn" id="start-capture" onclick="startCapturing()">
                         <i class="fas fa-play"></i> Start Scanning
                     </button>
-                    <button type="button" class="btn btn-danger" id="stop-capture" onclick="stopCapturing()"
-                        style="display: none;">
+                    <button class="btn btn-danger ripple-btn" id="stop-capture" style="display:none"
+                        onclick="stopCapturing()">
                         <i class="fas fa-stop"></i> Stop
                     </button>
-                    <button type="button" class="btn btn-success" id="complete-registration"
-                        onclick="completeRegistration()" style="display: none;">
+                    <button class="btn btn-success ripple-btn" id="complete-registration" style="display:none"
+                        onclick="completeRegistration()">
                         <i class="fas fa-check-double"></i> Complete Setup
                     </button>
                 </div>
@@ -96,7 +120,6 @@
 </div>
 
 <style>
-    /* Extended styles for signup */
     .auth-wrapper {
         display: flex;
         justify-content: center;
@@ -106,84 +129,216 @@
     }
 
     .auth-card.extended-card {
-        max-width: 550px;
+        max-width: 540px;
+        width: 100%;
     }
 
-    /* Progress Indicators */
-    .login-progress {
+    .neon-title {
+        font-size: 1.8rem;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.3rem;
+    }
+
+    .text-secondary {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem;
+    }
+
+    /* Progress */
+    .signup-progress {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-bottom: 3rem;
-        position: relative;
+        gap: 0;
+        margin-bottom: 0.3rem;
     }
 
-    .progress-step {
-        width: 35px;
-        height: 35px;
+    .prog-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .prog-step {
+        width: 40px;
+        height: 40px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--text-secondary);
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
         display: flex;
-        justify-content: center;
         align-items: center;
-        font-weight: bold;
-        border: 2px solid var(--glass-border);
-        transition: 0.4s ease;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.4s ease;
+        flex-shrink: 0;
         z-index: 2;
     }
 
-    .progress-step.active {
-        background: var(--primary-color);
+    .prog-step.active {
+        background: linear-gradient(135deg, #00f2ff, #bd00ff);
         color: #000;
-        box-shadow: 0 0 15px var(--primary-color);
-        border-color: var(--primary-color);
+        border-color: transparent;
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.5);
+        transform: scale(1.1);
     }
 
-    .progress-line {
-        width: 100px;
+    .prog-step.done {
+        background: rgba(0, 255, 136, 0.1);
+        color: #00ff88;
+        border-color: #00ff88;
+        transform: scale(1);
+    }
+
+    .prog-line {
+        flex: 1;
         height: 2px;
-        background: rgba(255, 255, 255, 0.1);
-        margin: 0 5px;
+        background: rgba(255, 255, 255, 0.07);
+        margin: 0 2px;
+        position: relative;
+        overflow: hidden;
+        transition: 0.3s;
+    }
+
+    .prog-line.filled::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        animation: fillLine 0.5s ease forwards;
+    }
+
+    @keyframes fillLine {
+        from {
+            width: 0
+        }
+
+        to {
+            width: 100%
+        }
     }
 
     /* Steps */
     .step {
         display: none;
-        animation: fadeIn 0.5s ease;
+        animation: fadeSlide 0.4s ease;
     }
 
     .step.active {
         display: block;
     }
 
+    @keyframes fadeSlide {
+        from {
+            opacity: 0;
+            transform: translateX(20px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0)
+        }
+    }
+
     .step h3 {
         text-align: center;
-        margin-bottom: 2rem;
-        font-size: 1.4rem;
-    }
-
-    /* Training Specific */
-    .training-info {
-        background: rgba(0, 242, 255, 0.05);
-        border: 1px solid var(--primary-color);
-        padding: 1rem;
-        border-radius: 10px;
         margin-bottom: 1.5rem;
-        font-size: 0.9rem;
-        color: var(--primary-color);
+        font-size: 1.3rem;
+        background: linear-gradient(90deg, #fff, #00f2ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
+    /* OTP Box */
+    .otp-box {
+        text-align: center;
+        padding: 2rem 0 1rem;
+    }
+
+    .otp-icon {
+        font-size: 3.5rem;
+        color: #00f2ff;
+        display: block;
+        margin-bottom: 0.8rem;
+        filter: drop-shadow(0 0 10px #00f2ff);
+    }
+
+    .otp-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 1.5rem 0;
+    }
+
+    .otp-digit {
+        width: 48px;
+        height: 56px;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        background: rgba(0, 0, 0, 0.4);
+        border: 2px solid rgba(0, 242, 255, 0.25);
+        border-radius: 10px;
+        color: #fff;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .otp-digit:focus {
+        border-color: #00f2ff;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+    }
+
+    .otp-digit.filled {
+        border-color: rgba(0, 242, 255, 0.6);
+        background: rgba(0, 242, 255, 0.08);
+    }
+
+    .resend-row {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    .link-highlight {
+        color: #00f2ff;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .link-highlight:hover {
+        text-decoration: underline;
+    }
+
+    /* Camera */
     .camera-wrapper {
         position: relative;
         width: 100%;
         border-radius: 15px;
         overflow: hidden;
         margin-bottom: 1.5rem;
-        border: 2px solid var(--glass-border);
-        box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        border: 2px solid rgba(0, 242, 255, 0.3);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
         aspect-ratio: 4/3;
-        background: black;
+        background: #000;
     }
 
     #video {
@@ -206,13 +361,21 @@
     }
 
     .scan-overlay.training.active {
-        border-color: var(--primary-color);
+        border-color: #00f2ff;
         border-style: solid;
-        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.7);
     }
 
+    .face-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
+        pointer-events: none;
+    }
+
+    /* Progress */
     .progress-container {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.03);
         padding: 1.5rem;
         border-radius: 12px;
         margin-bottom: 1.5rem;
@@ -223,13 +386,13 @@
         justify-content: space-between;
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
-        color: var(--text-secondary);
+        color: rgba(255, 255, 255, 0.5);
     }
 
     .progress-track {
         width: 100%;
         height: 8px;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.08);
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 0.5rem;
@@ -237,26 +400,32 @@
 
     .progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
         transition: width 0.3s ease;
     }
 
     .training-status {
         font-size: 0.85rem;
-        color: var(--text-secondary);
+        color: rgba(255, 255, 255, 0.5);
     }
 
+    .training-info {
+        background: rgba(0, 242, 255, 0.06);
+        border: 1px solid rgba(0, 242, 255, 0.2);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        color: #00f2ff;
+    }
+
+    /* Actions */
     .step-actions {
         display: flex;
         justify-content: center;
         gap: 1rem;
         flex-wrap: wrap;
-    }
-
-    .link-highlight {
-        color: var(--primary-color);
-        text-decoration: none;
-        font-weight: 600;
+        margin-top: 1.5rem;
     }
 
     .status-message {
@@ -265,85 +434,192 @@
         min-height: 20px;
         font-size: 0.9rem;
     }
+
+    .ripple-btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Neon pulse */
+    @keyframes neonPulse {
+
+        0%,
+        100% {
+            opacity: 0.6
+        }
+
+        50% {
+            opacity: 1
+        }
+    }
+
+    .neon-pulse {
+        animation: neonPulse 2s ease-in-out infinite;
+    }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    let currentStep = 1;
-    let stream;
-    let captureInterval;
     let capturedImages = [];
+    let captureInterval;
     let isCapturing = false;
+    let stream;
+    let resendTimer;
 
-    function updateProgress(step) {
-        document.querySelectorAll('.progress-step').forEach((el, idx) => {
-            if (idx + 1 <= step) el.classList.add('active');
-            else el.classList.remove('active');
+    // ── OTP digit inputs ─────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        const digits = document.querySelectorAll('.otp-digit');
+        digits.forEach((input, i) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '');
+                if (input.value && i < digits.length - 1) digits[i + 1].focus();
+                input.classList.toggle('filled', !!input.value);
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !input.value && i > 0) digits[i - 1].focus();
+            });
+        });
+    });
+
+    function getOtpValue() {
+        return Array.from(document.querySelectorAll('.otp-digit')).map(d => d.value).join('');
+    }
+
+    // ── Step Navigation ──────────────────────────────────────────────────────
+    function showStep(n) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.querySelector(`.step-${n}`).classList.add('active');
+        document.querySelectorAll('.prog-step').forEach((el, idx) => {
+            el.classList.remove('active', 'done');
+            if (idx + 1 < n) el.classList.add('done');
+            else if (idx + 1 === n) el.classList.add('active');
+        });
+        document.querySelectorAll('.prog-line').forEach((l, idx) => {
+            l.classList.toggle('filled', idx + 1 < n);
         });
     }
 
-    function startFaceCapture() {
+    // ── Step 1 → Send OTP ────────────────────────────────────────────────────
+    async function sendSignupOtp() {
         const username = document.getElementById('username').value.trim();
         const email = document.getElementById('email').value.trim();
         const pin = document.getElementById('pin').value.trim();
+        const statusEl = document.getElementById('step1-status');
 
-        if (!username || !email || !pin || pin.length !== 4) {
-            Toast.show('Please fill in all fields correctly', 'error');
-            return;
+        if (!username || !email || pin.length !== 4) {
+            Toast.show('Please fill all fields correctly.', 'error'); return;
         }
 
-        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-        document.querySelector('.step-2').classList.add('active');
-        currentStep = 2;
-        updateProgress(2);
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Sending OTP...</span>';
 
-        startCamera();
+        try {
+            const res = await fetch('/send_otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, purpose: 'signup' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('otp-sent-text').textContent = `OTP sent to ${data.masked_email}`;
+                Toast.show(data.message, 'success');
+                showStep(2);
+                startResendTimer();
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+                Toast.show(data.message, 'error');
+            }
+        } catch (e) {
+            statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Network error</span>';
+        }
     }
 
+    // ── Step 2 → Verify OTP ──────────────────────────────────────────────────
+    async function verifySignupOtp() {
+        const otp = getOtpValue();
+        const statusEl = document.getElementById('step2-status');
+        if (otp.length !== 6) { Toast.show('Enter the 6-digit OTP.', 'error'); return; }
+
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Verifying...</span>';
+
+        try {
+            const res = await fetch('/verify_otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp, purpose: 'signup' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:#00ff88">✅ Email Verified!</span>';
+                Toast.show('Email verified! Now train your face.', 'success');
+                clearInterval(resendTimer);
+                setTimeout(() => { showStep(3); startCamera(); }, 800);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+                Toast.show(data.message, 'error');
+            }
+        } catch (e) {
+            statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Network error</span>';
+        }
+    }
+
+    // ── Resend OTP ────────────────────────────────────────────────────────────
+    function startResendTimer() {
+        let sec = 60;
+        document.getElementById('resend-timer').style.display = 'inline';
+        document.getElementById('resend-link').classList.add('hidden');
+        clearInterval(resendTimer);
+        resendTimer = setInterval(() => {
+            sec--;
+            document.getElementById('resend-count').textContent = sec;
+            if (sec <= 0) {
+                clearInterval(resendTimer);
+                document.getElementById('resend-timer').style.display = 'none';
+                document.getElementById('resend-link').classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    async function resendOtp(e, purpose) {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const res = await fetch('/send_otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, purpose })
+        });
+        const data = await res.json();
+        Toast.show(data.message, data.success ? 'success' : 'error');
+        if (data.success) startResendTimer();
+    }
+
+    // ── Camera ────────────────────────────────────────────────────────────────
     function startCamera() {
         const video = document.getElementById('video');
-
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
-                .then(function (mediaStream) {
-                    stream = mediaStream;
-                    video.srcObject = stream;
-                    document.getElementById('capture-status').textContent = 'Camera ready. Position your face in the circle.';
-                })
-                .catch(function (error) {
-                    console.error('Camera error:', error);
-                    Toast.show('Camera access denied.', 'error');
-                });
-        } else {
-            Toast.show('Camera not supported.', 'error');
-        }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+            .then(s => { stream = s; video.srcObject = s; document.getElementById('capture-status').textContent = 'Camera ready. Position face in circle.'; })
+            .catch(() => Toast.show('Camera access denied.', 'error'));
     }
 
     function startCapturing() {
         if (isCapturing) return;
-
         isCapturing = true;
         capturedImages = [];
-
         document.getElementById('start-capture').style.display = 'none';
         document.getElementById('stop-capture').style.display = 'inline-block';
         document.querySelector('.scan-overlay').classList.add('active');
-
-        document.getElementById('capture-status').innerHTML = '<span style="color: var(--primary-color)">Typing to capture... Move head slightly.</span>';
-
+        document.getElementById('capture-status').innerHTML = '<span style="color:#00f2ff">Capturing... Move head slowly.</span>';
         captureInterval = setInterval(() => {
-            if (capturedImages.length < 50) {
-                captureImage();
-            } else {
+            if (capturedImages.length < 50) captureImage();
+            else {
                 stopCapturing();
-                if (capturedImages.length >= 20) { // Require at least 20 decent frames
+                if (capturedImages.length >= 20) {
                     document.getElementById('complete-registration').style.display = 'inline-block';
                     document.getElementById('stop-capture').style.display = 'none';
-                    document.getElementById('capture-status').innerHTML = '<span style="color: var(--success)">Training Complete! Click "Complete Setup"</span>';
-                    Toast.show('Face training complete!', 'success');
+                    document.getElementById('capture-status').innerHTML = '<span style="color:#00ff88">Training complete! Click "Complete Setup".</span>';
+                    Toast.show('Face training done!', 'success');
                 } else {
-                    document.getElementById('capture-status').textContent = 'Not enough clear images. Try again.';
+                    document.getElementById('capture-status').textContent = 'Not enough images. Try again.';
                     document.getElementById('start-capture').style.display = 'inline-block';
                 }
             }
@@ -352,11 +628,8 @@
 
     function stopCapturing() {
         isCapturing = false;
-        if (captureInterval) {
-            clearInterval(captureInterval);
-        }
+        clearInterval(captureInterval);
         document.querySelector('.scan-overlay').classList.remove('active');
-
         if (document.getElementById('complete-registration').style.display === 'none') {
             document.getElementById('start-capture').style.display = 'inline-block';
             document.getElementById('stop-capture').style.display = 'none';
@@ -366,80 +639,54 @@
     function captureImage() {
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-
-        const imageData = canvas.toDataURL('image/jpeg', 0.95);
-        capturedImages.push(imageData);
-
-        // Update progress
-        const count = capturedImages.length;
-        const percentage = Math.round((count / 50) * 100);
-
-        document.getElementById('progress-text').textContent = percentage + '%';
-        document.getElementById('progress-fill').style.width = percentage + '%';
-
-        // Flash effect
-        if (count % 5 === 0) {
-            document.querySelector('.scan-overlay').style.borderColor = 'white';
-            setTimeout(() => {
-                document.querySelector('.scan-overlay').style.borderColor = 'var(--primary-color)';
-            }, 50);
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        capturedImages.push(canvas.toDataURL('image/jpeg', 0.95));
+        const pct = Math.round((capturedImages.length / 50) * 100);
+        document.getElementById('progress-text').textContent = pct + '%';
+        document.getElementById('progress-fill').style.width = pct + '%';
+        if (capturedImages.length % 5 === 0) {
+            const ov = document.querySelector('.scan-overlay');
+            ov.style.borderColor = 'white';
+            setTimeout(() => ov.style.borderColor = '', 50);
         }
     }
 
-    function completeRegistration() {
-        const username = document.getElementById('username').value;
-        const email = document.getElementById('email').value;
-        const pin = document.getElementById('pin').value;
-        const statusEl = document.getElementById('face-status');
+    // ── Complete Registration ─────────────────────────────────────────────────
+    async function completeRegistration() {
         const btn = document.getElementById('complete-registration');
-
+        const statusEl = document.getElementById('face-status');
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        statusEl.innerHTML = '<span class="info">Analyzing face data and creating secure ID...</span>';
+        statusEl.innerHTML = '<span style="color:#00f2ff">Analyzing face data...</span>';
 
-        fetch('/signup_with_training', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username: username,
-                email: email,
-                pin: pin,
-                face_images: capturedImages
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    statusEl.innerHTML = '<span class="success">✅ Registration Successful!</span>';
-                    Toast.show('Account created successfully!', 'success');
-                    stopCamera();
-                    setTimeout(() => {
-                        window.location.href = '/login';
-                    }, 2000);
-                } else {
-                    statusEl.innerHTML = '<span class="error">❌ ' + data.message + '</span>';
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check-double"></i> Complete Setup';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                statusEl.innerHTML = '<span class="error">❌ Server Error</span>';
+        try {
+            const res = await fetch('/signup_with_training', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    email: document.getElementById('email').value,
+                    pin: document.getElementById('pin').value,
+                    face_images: capturedImages
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = `<span style="color:#00ff88">✅ ${data.message}</span>`;
+                Toast.show('Account created! Welcome to SecureDoc. Your Member ID: ' + data.member_id, 'success');
+                if (stream) stream.getTracks().forEach(t => t.stop());
+                setTimeout(() => window.location.href = '/login', 2500);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check-double"></i> Complete Setup';
-            });
-    }
-
-    function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
+            }
+        } catch (e) {
+            statusEl.innerHTML = '<span style="color:#ff4d4d">❌ Server Error</span>';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check-double"></i> Complete Setup';
         }
     }
 </script>

@@ -1,18 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Face Auth Document Locker{% endblock %}
+{% block title %}Dashboard - SecureDoc Vault{% endblock %}
 
 {% block content %}
+<canvas id="particle-canvas"></canvas>
+
 <div class="dashboard-container">
-    <div class="dashboard-container">
-        <!-- Overlay Removed for Premium Feel -->
-        <div class="dashboard-header-card glass-card mb-4" data-tilt data-tilt-max="5" data-tilt-glare
-            data-tilt-max-glare="0.2">
-            <div class="header-content">
-                <div>
-                    <h2 class="neon-text">Welcome Back, <span class="highlight-text">{{ session.username }}</span></h2>
-                    <p class="text-secondary">Secure Document Vault</p>
-                </div>
+
+    <!-- ── Header Card ─────────────────────────────── -->
+    <div class="dashboard-header-card glass-card mb-4">
+        <div class="header-content">
+            <div>
+                <h2 class="glitch-text" data-text="Welcome Back,">Welcome Back,
+                    <span class="highlight-text">{{ session.username }}</span>
+                </h2>
+                <p class="text-secondary">🔒 Secure Document Vault • Multi-Factor Protected</p>
+            </div>
+            <div class="header-right">
                 <div class="member-badge">
                     <i class="fas fa-id-badge neon-icon"></i>
                     <div class="badge-info">
@@ -22,16 +26,48 @@
                 </div>
             </div>
         </div>
-
     </div>
 
+    <!-- ── Animated Stats Bar ──────────────────────── -->
+    <div class="stats-bar mb-4">
+        <div class="stat-pill" id="stat-docs">
+            <i class="fas fa-file-shield"></i>
+            <div>
+                <div class="stat-num" data-target="0" id="docs-count">0</div>
+                <div class="stat-label">My Docs</div>
+            </div>
+        </div>
+        <div class="stat-pill" id="stat-shared-out">
+            <i class="fas fa-share-nodes"></i>
+            <div>
+                <div class="stat-num" data-target="0" id="shared-out-count">0</div>
+                <div class="stat-label">Shared Out</div>
+            </div>
+        </div>
+        <div class="stat-pill" id="stat-shared-in">
+            <i class="fas fa-inbox"></i>
+            <div>
+                <div class="stat-num" data-target="0" id="shared-in-count">0</div>
+                <div class="stat-label">Received</div>
+            </div>
+        </div>
+        <div class="stat-pill" id="stat-logs">
+            <i class="fas fa-chart-line"></i>
+            <div>
+                <div class="stat-num" data-target="0" id="logs-count">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Upload + Documents ─────────────────────── -->
     <div class="grid-layout">
         <!-- Upload Section -->
-        <div class="upload-section glass-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+        <div class="upload-section glass-card">
             <h3 class="section-title"><i class="fas fa-cloud-upload-alt"></i> Secure Upload</h3>
             <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data"
                 class="upload-form">
-                <div class="form-group upload-zone" id="drop-zone" data-tilt data-tilt-max="10" data-tilt-scale="1.02">
+                <div class="form-group upload-zone" id="drop-zone">
                     <div class="upload-content">
                         <i class="fas fa-file-import upload-icon"></i>
                         <p>Drag & Drop files or <span class="highlight-text">Click to Browse</span></p>
@@ -41,20 +77,21 @@
                         required>
                     <div id="file-preview" class="file-preview"></div>
                 </div>
-                <button type="submit" class="btn btn-neon full-width">
-                    <i class="fas fa-lock"></i> Encrypt & Upload
+                <button type="submit" class="btn btn-neon full-width ripple-btn">
+                    <i class="fas fa-lock"></i> Encrypt &amp; Upload
                 </button>
             </form>
         </div>
 
-        <!-- Documents List -->
-        <div class="documents-main glass-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+        <!-- Documents Grid -->
+        <div class="documents-main glass-card">
             <h3 class="section-title"><i class="fas fa-folder-open"></i> Your Documents</h3>
-
             {% if documents %}
             <div class="documents-grid modern-grid">
                 {% for doc in documents %}
-                <div class="doc-item">
+                <div class="doc-item" style="animation-delay: {{ loop.index0 * 0.08 }}s">
+                    <div class="doc-shimmer"></div>
+                    <div class="enc-badge"><i class="fas fa-lock"></i> Encrypted</div>
                     <div class="doc-icon-wrapper">
                         {% if doc[3].endswith('.pdf') %}
                         <i class="fas fa-file-pdf pdf-color"></i>
@@ -89,17 +126,18 @@
         </div>
     </div>
 
-    <!-- Shared with Me Section -->
+    <!-- ── Shared with Me ─────────────────────────── -->
     {% if shared_documents %}
-    <div class="glass-card mt-4" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
+    <div class="glass-card mt-4">
         <h3 class="section-title"><i class="fas fa-share-alt-square"></i> Shared with You</h3>
         <div class="documents-grid modern-grid">
             {% for shared in shared_documents %}
             <div class="doc-item shared">
+                <div class="doc-shimmer"></div>
                 <div class="doc-icon"><i class="fas fa-file-contract"></i></div>
                 <div class="doc-details">
-                    <h4>{{ shared[2] }}</h4>
-                    <span class="meta">From: <span class="highlight-text">@{{ shared[7] }}</span></span>
+                    <h4>{{ shared[9] }}</h4>
+                    <span class="meta">From: <span class="highlight-text">@{{ shared[11] }}</span></span>
                 </div>
                 <div class="doc-actions">
                     <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-neon-small">
@@ -112,66 +150,65 @@
     </div>
     {% endif %}
 
-    <!-- Pending Requests -->
+    <!-- ── Pending Requests ───────────────────────── -->
     {% if pending_shares %}
-    <div class="glass-card mt-4 notification-card" data-tilt data-tilt-max="5" data-tilt-glare
-        data-tilt-max-glare="0.2">
-        <h3 class="section-title"><i class="fas fa-bell"></i> Pending Requests</h3>
+    <div class="glass-card mt-4 notification-card">
+        <h3 class="section-title"><i class="fas fa-bell"></i> Pending Requests
+            <span class="badge-count">{{ pending_shares|length }}</span>
+        </h3>
         {% for pending in pending_shares %}
         <div class="pending-item">
             <div class="pending-info">
-                <span class="highlight-text">{{ pending[7] }}</span> wants to share "<em>{{ pending[2] }}</em>"
+                <strong class="highlight-text">@{{ pending[11] }}</strong> wants to share "
+                <em>{{ pending[9] }}</em>"
             </div>
             <div class="pending-actions">
-                <button onclick="acceptShare({{ pending[0] }})" class="btn btn-success btn-sm">Accept</button>
-                <button onclick="rejectShare({{ pending[0] }})" class="btn btn-danger btn-sm">Reject</button>
+                <button onclick="acceptShare({{ pending[0] }})"
+                    class="btn btn-success btn-sm ripple-btn">Accept</button>
+                <button onclick="rejectShare({{ pending[0] }})" class="btn btn-danger btn-sm ripple-btn">Reject</button>
             </div>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
-    <!-- Matrix Access Logs -->
-    <div class="glass-card mt-4 terminal-card" data-tilt data-tilt-max="5" data-tilt-glare data-tilt-max-glare="0.2">
-        <h3 class="section-title"><i class="fas fa-terminal"></i> Live System Logs</h3>
+    <!-- ── Live Matrix Terminal ────────────────────── -->
+    <div class="glass-card mt-4 terminal-card">
+        <h3 class="section-title"><i class="fas fa-terminal"></i> Live System Logs
+            <span class="terminal-dot"></span>
+        </h3>
         <div id="matrix-terminal" class="matrix-terminal">
-            <!-- Logs injected via JS -->
             <div class="matrix-line"><span class="time">[SYSTEM]</span> Initializing Security Protocols...</div>
         </div>
     </div>
-
 </div>
 
-<!-- Modern Share Modal -->
+<!-- ── Share Modal ────────────────────────────────── -->
 <div id="shareModal" class="modal">
-    <div class="modal-content glass-limit neon-border">
+    <div class="modal-content glass-limit neon-border modal-animate">
         <div class="modal-header">
             <h3><i class="fas fa-users"></i> Group Sharing</h3>
             <span class="close" onclick="closeShareModal()">&times;</span>
         </div>
         <div class="modal-body">
             <p>Sharing: <strong id="shareDocumentName" class="highlight-text"></strong></p>
-
             <div class="form-group mt-4">
-                <label>Recipients (Enter Member ID & Press Enter)</label>
+                <label>Recipients (Enter Member ID &amp; Press Enter)</label>
                 <div class="chip-input-container" id="chipContainer">
-                    <!-- Chips will go here -->
-                    <input type="text" id="memberIdInput" placeholder="Add ID..." maxlength="6">
+                    <input type="text" id="memberIdInput" placeholder="Add 6-digit ID..." maxlength="6">
                 </div>
-                <small class="text-secondary">Click 'Enter' or 'Space' to add a user. Max 10 users.</small>
+                <small class="text-secondary">Press Enter or Space to add. Max 10 users.</small>
             </div>
-
             <div class="form-group mt-3">
                 <label>Security Level</label>
                 <select id="securityLevel" class="neon-select">
-                    <option value="standard">Standard (No Expiry)</option>
-                    <option value="confidential">Confidential (Expires in 24h)</option>
-                    <option value="top_secret">Top Secret (Self-Destruct after 1 View)</option>
+                    <option value="standard">🔓 Standard (No Expiry)</option>
+                    <option value="confidential">🔒 Confidential (Expires in 24h)</option>
+                    <option value="top_secret">💀 Top Secret (Self-Destruct after 1 View)</option>
                 </select>
             </div>
-
             <div class="modal-footer">
-                <button onclick="shareDocument()" class="btn btn-neon normal-btn">
+                <button onclick="shareDocument()" class="btn btn-neon normal-btn ripple-btn">
                     <i class="fas fa-paper-plane"></i> Send Invites
                 </button>
                 <button onclick="closeShareModal()" class="btn btn-ghost normal-btn">Cancel</button>
@@ -180,24 +217,75 @@
     </div>
 </div>
 
+<!-- ── OTP Verification Modal ─────────────────────────────── -->
+<div id="otpModal" class="modal">
+    <div class="modal-content glass-limit neon-border modal-animate" style="max-width:420px">
+        <div class="modal-header">
+            <h3><i class="fas fa-envelope-open-text"></i> Email Verification</h3>
+            <span class="close" onclick="closeOtpModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="text-align:center">
+            <i class="fas fa-mailbox"
+                style="font-size:3rem;color:#00f2ff;display:block;margin-bottom:0.8rem;filter:drop-shadow(0 0 10px #00f2ff);animation:neonPulse 2s ease-in-out infinite"></i>
+            <p id="otp-modal-label" style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 1.5rem">OTP sent to
+                your registered email</p>
+            <div class="otp-inputs" id="otp-modal-inputs">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+            </div>
+            <button id="otp-submit-btn" class="btn btn-neon full-width ripple-btn" onclick="submitOtpModal()"
+                style="margin-top:1rem">
+                <i class="fas fa-check-circle"></i> Verify OTP
+            </button>
+            <div class="resend-row" style="margin-top:1rem;font-size:0.85rem">
+                <span id="otp-resend-timer" style="color:rgba(255,255,255,0.5)">Resend in <span
+                        id="otp-resend-count">60</span>s</span>
+                <a href="#" id="otp-resend-link" class="hidden"
+                    style="color:#00f2ff;font-weight:600;text-decoration:none" onclick="resendOtpModal(event)">Resend
+                    OTP</a>
+            </div>
+            <div id="otp-modal-status" class="status-msg mt-4"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Confetti Canvas ────────────────────────────── -->
+<canvas id="confetti-canvas"
+    style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none"></canvas>
+
 <style>
-    /* variables */
     :root {
         --primary-neon: #00f2ff;
         --secondary-neon: #bd00ff;
-        --glass-bg: rgba(18, 18, 24, 0.85);
-        --glass-border: rgba(255, 255, 255, 0.1);
-        --chip-bg: rgba(0, 242, 255, 0.15);
+        --accent-green: #00ff88;
+        --glass-bg: rgba(13, 14, 18, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.07);
+        --chip-bg: rgba(0, 242, 255, 0.12);
         --text-color: #e0e0e0;
     }
 
-    /* PREMIUM AURORA BACKGROUND */
     body {
         margin: 0;
         background: #000;
         overflow-x: hidden;
     }
 
+    /* ── Particle Canvas ── */
+    #particle-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    /* ── Aurora BG ── */
     body::before {
         content: "";
         position: fixed;
@@ -205,24 +293,10 @@
         left: -50%;
         width: 200%;
         height: 200%;
-        background: radial-gradient(circle at 50% 50%,
-                rgba(76, 29, 149, 0.15),
-                rgba(15, 23, 42, 0.4),
-                rgba(0, 0, 0, 1));
-        background-size: 100% 100%;
-        animation: auroraMove 15s ease infinite alternate;
+        background: radial-gradient(circle at 20% 20%, rgba(76, 29, 149, 0.18), transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(0, 242, 255, 0.12), transparent 40%);
+        animation: auroraMove 18s ease infinite alternate;
         z-index: -2;
-    }
-
-    body::after {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(120deg, rgba(0, 242, 255, 0.03), rgba(189, 0, 255, 0.03));
-        z-index: -1;
     }
 
     @keyframes auroraMove {
@@ -231,87 +305,197 @@
         }
 
         100% {
-            transform: translate(-2%, 2%) scale(1.05);
+            transform: translate(-3%, 3%) scale(1.08);
         }
     }
 
-    /* DECRYPTION OVERLAY REMOVED */
-
-    /* Overall Layout */
+    /* ── Layout ── */
     .dashboard-container {
         max-width: 1200px;
         margin: 0 auto;
-        padding-bottom: 50px;
+        padding-bottom: 60px;
     }
 
-    /* Glass Cards 2.0 - Premium */
+    /* ── Glass Cards ── */
     .glass-card {
-        background: rgba(13, 14, 18, 0.6);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(13, 14, 18, 0.65);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 24px;
-        padding: 2.5rem;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+        padding: 2rem 2.5rem;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        transition: box-shadow 0.4s ease;
+        animation: cardEntrance 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     }
 
-    .glass-card:hover {
-        /* transform: translateY(-4px); */
-        /* Removed for Vanilla Tilt */
-        /* box-shadow: 0 30px 60px rgba(0, 242, 255, 0.05); */
-        /* Removed for Vanilla Tilt */
-        border-color: rgba(255, 255, 255, 0.1);
+    @keyframes cardEntrance {
+        from {
+            opacity: 0;
+            transform: translateY(24px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
-    /* Headers */
-    .section-title {
-        border-bottom: 2px solid rgba(255, 255, 255, 0.05);
-        padding-bottom: 0.5rem;
-        margin-bottom: 1.5rem;
-        color: var(--primary-neon);
-        text-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
-    }
-
-    /* Header Card */
+    /* ── Header ── */
     .dashboard-header-card {
-        background: linear-gradient(135deg, rgba(0, 242, 255, 0.05) 0%, rgba(189, 0, 255, 0.05) 100%);
+        background: linear-gradient(135deg, rgba(0, 242, 255, 0.06), rgba(189, 0, 255, 0.06));
+        animation-delay: 0s;
     }
 
-    /* Badges */
-    .member-badge {
-        background: rgba(0, 0, 0, 0.4);
-        padding: 1rem 2rem;
-        border-radius: 16px;
-        border: 1px solid rgba(0, 242, 255, 0.2);
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+    }
+
+    .header-right {
         display: flex;
         align-items: center;
         gap: 1.5rem;
-        box-shadow: 0 0 20px rgba(0, 242, 255, 0.05);
+        flex-wrap: wrap;
+    }
+
+    /* ── Glitch text ── */
+    .glitch-text {
+        color: #fff;
+        font-size: 1.6rem;
+        position: relative;
+        margin-bottom: 0.3rem;
+    }
+
+    /* ── Member Badge ── */
+    .member-badge {
+        background: rgba(0, 0, 0, 0.4);
+        padding: 0.8rem 1.5rem;
+        border-radius: 14px;
+        border: 1px solid rgba(0, 242, 255, 0.2);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
     }
 
     .neon-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         color: var(--primary-neon);
-        filter: drop-shadow(0 0 5px var(--primary-neon));
+        filter: drop-shadow(0 0 6px var(--primary-neon));
     }
 
     .glow-text {
-        font-size: 1.4rem;
+        font-size: 1.3rem;
         font-weight: 700;
         color: #fff;
-        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
     }
 
-    /* Grid Layout */
+    /* ── Fingerprint Register Button ── */
+    .btn-fp-register {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        background: rgba(189, 0, 255, 0.1);
+        border: 1px solid rgba(189, 0, 255, 0.4);
+        border-radius: 50px;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+    }
+
+    .btn-fp-register:hover {
+        background: rgba(189, 0, 255, 0.25);
+        box-shadow: 0 0 15px rgba(189, 0, 255, 0.4);
+        transform: translateY(-1px);
+    }
+
+    .btn-fp-register.active {
+        background: rgba(0, 255, 136, 0.1);
+        border-color: rgba(0, 255, 136, 0.5);
+        color: #00ff88;
+    }
+
+    .btn-fp-register i.fa-fingerprint {
+        animation: fpPulse2 2s ease-in-out infinite;
+    }
+
+    @keyframes fpPulse2 {
+
+        0%,
+        100% {
+            text-shadow: 0 0 5px #bd00ff;
+        }
+
+        50% {
+            text-shadow: 0 0 20px #00f2ff;
+        }
+    }
+
+    /* ── Stats Bar ── */
+    .stats-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        animation: cardEntrance 0.6s ease both;
+        animation-delay: 0.15s;
+    }
+
+    .stat-pill {
+        background: rgba(13, 14, 18, 0.6);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 16px;
+        padding: 1.2rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.3s ease;
+        cursor: default;
+    }
+
+    .stat-pill:hover {
+        border-color: rgba(0, 242, 255, 0.3);
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.08);
+        transform: translateY(-3px);
+    }
+
+    .stat-pill i {
+        font-size: 1.8rem;
+        background: linear-gradient(135deg, var(--primary-neon), var(--secondary-neon));
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .stat-num {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    /* ── Grid ── */
     .grid-layout {
         display: grid;
         grid-template-columns: 380px 1fr;
         gap: 2rem;
     }
 
-    /* Upload Zone */
+    /* ── Upload Zone ── */
     .upload-zone {
         border: 2px dashed rgba(255, 255, 255, 0.1);
         background: rgba(0, 0, 0, 0.2);
@@ -324,34 +508,46 @@
         overflow: hidden;
     }
 
+    .upload-zone::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(0, 242, 255, 0.03), rgba(189, 0, 255, 0.03));
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .upload-zone:hover::before {
+        opacity: 1;
+    }
+
     .upload-zone:hover {
         border-color: var(--primary-neon);
-        box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.05);
+        box-shadow: inset 0 0 30px rgba(0, 242, 255, 0.05);
     }
 
     .upload-zone input {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        inset: 0;
         opacity: 0;
         cursor: pointer;
     }
 
     .upload-icon {
-        font-size: 4rem;
-        margin-bottom: 1rem;
-        color: rgba(255, 255, 255, 0.2);
+        font-size: 3.5rem;
+        color: rgba(255, 255, 255, 0.15);
         transition: 0.3s;
+        margin-bottom: 1rem;
+        display: block;
     }
 
     .upload-zone:hover .upload-icon {
         color: var(--primary-neon);
-        transform: scale(1.1);
+        transform: scale(1.1) translateY(-4px);
+        filter: drop-shadow(0 0 10px var(--primary-neon));
     }
 
-    /* Buttons */
+    /* ── Buttons ── */
     .btn-neon {
         background: linear-gradient(90deg, var(--primary-neon), var(--secondary-neon));
         color: #000;
@@ -367,7 +563,7 @@
     }
 
     .btn-neon:hover {
-        box-shadow: 0 0 25px rgba(0, 242, 255, 0.6);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.6);
         transform: translateY(-2px);
     }
 
@@ -387,25 +583,47 @@
         box-shadow: 0 0 10px var(--primary-neon);
     }
 
-    /* Documents Grid */
+    /* ── Section Title ── */
+    .section-title {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding-bottom: 0.8rem;
+        margin-bottom: 1.5rem;
+        color: var(--primary-neon);
+        text-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .badge-count {
+        background: rgba(0, 242, 255, 0.15);
+        border: 1px solid rgba(0, 242, 255, 0.3);
+        color: var(--primary-neon);
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    /* ── Document Cards ── */
     .modern-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 1.2rem;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 1rem;
     }
 
     .doc-item {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(255, 255, 255, 0.025);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 14px;
+        padding: 1.4rem;
         display: flex;
         flex-direction: column;
-        /* Stack for vertical look in small cards */
-        gap: 1rem;
-        transition: 0.3s;
+        gap: 0.8rem;
+        transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
         position: relative;
         overflow: hidden;
+        animation: cardEntrance 0.5s ease both;
     }
 
     .doc-item::before {
@@ -416,141 +634,180 @@
         width: 3px;
         height: 100%;
         background: linear-gradient(to bottom, var(--primary-neon), var(--secondary-neon));
-        opacity: 0.5;
+        opacity: 0.6;
+    }
+
+    /* Shimmer effect */
+    .doc-shimmer {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.04) 50%, transparent 60%);
+        background-size: 200% 100%;
+        transition: background-position 0.6s ease;
+        pointer-events: none;
+    }
+
+    .doc-item:hover .doc-shimmer {
+        background-position: -100% 0;
+        animation: shimmerSwipe 0.7s ease forwards;
+    }
+
+    @keyframes shimmerSwipe {
+        from {
+            background-position: 200% 0;
+        }
+
+        to {
+            background-position: -100% 0;
+        }
     }
 
     .doc-item:hover {
         transform: translateY(-5px);
         background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.2);
+        border-color: rgba(0, 242, 255, 0.2);
+    }
+
+    /* Encryption badge */
+    .enc-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 255, 136, 0.1);
+        border: 1px solid rgba(0, 255, 136, 0.3);
+        color: #00ff88;
+        font-size: 0.6rem;
+        padding: 2px 7px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        letter-spacing: 0.5px;
     }
 
     .doc-icon-wrapper {
         font-size: 2.5rem;
         align-self: center;
-        margin-bottom: 0.5rem;
     }
 
     .doc-details h4 {
         margin: 0;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         color: #fff;
     }
 
+    .doc-date {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
     .doc-actions {
         display: flex;
         justify-content: space-between;
         margin-top: auto;
-        padding-top: 1rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 0.8rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Chips Input */
-    .chip-input-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid var(--glass-border);
+    /* Icon buttons */
+    .btn-icon {
+        background: rgba(0, 242, 255, 0.08);
+        border: 1px solid rgba(0, 242, 255, 0.2);
+        color: var(--primary-neon);
+        width: 36px;
+        height: 36px;
         border-radius: 8px;
-        padding: 0.5rem;
-        min-height: 50px;
-    }
-
-    .chip {
-        background: var(--chip-bg);
-        border: 1px solid var(--primary-neon);
-        color: #fff;
-        padding: 5px 10px;
-        border-radius: 20px;
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 0.9rem;
-        animation: popIn 0.3s ease;
-    }
-
-    .chip i {
+        justify-content: center;
+        text-decoration: none;
+        transition: all 0.25s ease;
         cursor: pointer;
-        color: rgba(255, 255, 255, 0.7);
     }
 
-    .chip i:hover {
-        color: #ff4d4d;
+    .btn-icon:hover {
+        background: rgba(0, 242, 255, 0.2);
+        box-shadow: 0 0 12px rgba(0, 242, 255, 0.3);
+        transform: scale(1.1);
     }
 
-    .chip-input-container input {
-        background: transparent;
-        border: none;
-        color: #fff;
-        flex: 1;
-        min-width: 100px;
-        outline: none;
-        padding: 5px;
+    .btn-icon.secondary {
+        color: var(--secondary-neon);
+        border-color: rgba(189, 0, 255, 0.3);
+        background: rgba(189, 0, 255, 0.08);
     }
 
-    @keyframes popIn {
-        from {
-            transform: scale(0.8);
+    .btn-icon.secondary:hover {
+        background: rgba(189, 0, 255, 0.2);
+        box-shadow: 0 0 12px rgba(189, 0, 255, 0.4);
+    }
+
+    /* ── Pending Items ── */
+    .notification-card {
+        border-color: rgba(255, 200, 0, 0.15) !important;
+    }
+
+    .pending-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        gap: 1rem;
+    }
+
+    .pending-item:last-child {
+        border-bottom: none;
+    }
+
+    .btn-sm {
+        padding: 5px 14px;
+        font-size: 0.8rem;
+    }
+
+    /* ── Matrix Terminal ── */
+    .terminal-card {
+        border-color: rgba(0, 255, 0, 0.2) !important;
+        background: rgba(0, 8, 0, 0.85) !important;
+    }
+
+    .terminal-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #0f0;
+        box-shadow: 0 0 8px #0f0;
+        animation: blink 1s steps(1) infinite;
+        margin-left: 6px;
+    }
+
+    @keyframes blink {
+        50% {
             opacity: 0;
         }
-
-        to {
-            transform: scale(1);
-            opacity: 1;
-        }
-    }
-
-    /* Modal */
-    .modal-content.glass-limit {
-        background: #1a1a20;
-        border: 1px solid var(--primary-neon);
-        box-shadow: 0 0 30px rgba(0, 242, 255, 0.2);
-    }
-
-    .highlight-text {
-        color: var(--primary-neon);
-        font-weight: bold;
-    }
-
-    /* Responsive */
-    @media (max-width: 900px) {
-        .grid-layout {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Matrix Terminal Styles */
-    .terminal-card {
-        border-color: #0f0;
-        /* Matrix Green Border */
-        background: rgba(0, 10, 0, 0.9);
     }
 
     .matrix-terminal {
-        height: 200px;
-        overflow-y: hidden;
-        /* We will auto-scroll */
-        font-family: 'Courier New', Courier, monospace;
+        height: 220px;
+        overflow: hidden;
+        font-family: 'Courier New', monospace;
         color: #0f0;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
         position: relative;
     }
 
     .matrix-terminal::after {
         content: '';
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        inset: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%),
+            linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.04));
         background-size: 100% 2px, 3px 100%;
         pointer-events: none;
     }
@@ -558,12 +815,12 @@
     .matrix-line {
         padding: 2px 0;
         opacity: 0;
-        animation: fadeIn 0.5s forwards;
+        animation: fadeIn 0.4s forwards;
     }
 
     .matrix-line .time {
         color: #00fa9a;
-        margin-right: 10px;
+        margin-right: 8px;
         font-weight: bold;
     }
 
@@ -585,11 +842,164 @@
         }
     }
 
-    /* Neon Select */
+    /* ── Modal ── */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(6px);
+    }
+
+    .modal-content {
+        background: #12131a;
+        margin: 8% auto;
+        padding: 0;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 520px;
+        color: #fff;
+    }
+
+    .modal-animate {
+        animation: modalScale 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    @keyframes modalScale {
+        from {
+            opacity: 0;
+            transform: scale(0.85) translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .neon-border {
+        border: 1px solid rgba(0, 242, 255, 0.3);
+        box-shadow: 0 0 40px rgba(0, 242, 255, 0.15), inset 0 0 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: var(--primary-neon);
+        font-size: 1.2rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem 2rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .close {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 26px;
+        cursor: pointer;
+        transition: 0.2s;
+        font-weight: bold;
+    }
+
+    .close:hover {
+        color: #ff4d4d;
+    }
+
+    .normal-btn {
+        flex: 1;
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+
+    .btn-ghost {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.6);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+    }
+
+    /* ── Chip Input ── */
+    .chip-input-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 8px;
+        min-height: 50px;
+    }
+
+    .chip {
+        background: var(--chip-bg);
+        border: 1px solid var(--primary-neon);
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        animation: popIn 0.25s ease;
+    }
+
+    @keyframes popIn {
+        from {
+            transform: scale(0.7);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .chip i {
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .chip i:hover {
+        color: #ff4d4d;
+    }
+
+    .chip-input-container input {
+        background: transparent;
+        border: none;
+        color: #fff;
+        flex: 1;
+        min-width: 100px;
+        outline: none;
+        padding: 4px;
+    }
+
+    /* ── Neon Select ── */
     .neon-select {
         width: 100%;
         background: rgba(0, 0, 0, 0.5);
-        color: white;
+        color: #fff;
         border: 1px solid var(--primary-neon);
         padding: 10px;
         border-radius: 8px;
@@ -599,43 +1009,411 @@
     .neon-select option {
         background: #1a1a20;
     }
+
+    /* ── Fingerprint Modal ── */
+    .fingerprint-display-sm {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fp-ring-sm {
+        position: absolute;
+        border-radius: 50%;
+        border: 1px solid rgba(0, 242, 255, 0.25);
+        animation: fpPulse3 2s ease-in-out infinite;
+    }
+
+    .fp-ring-sm.fp-ring-1 {
+        width: 60px;
+        height: 60px;
+        animation-delay: 0s;
+    }
+
+    .fp-ring-sm.fp-ring-2 {
+        width: 100px;
+        height: 100px;
+        animation-delay: 0.4s;
+    }
+
+    @keyframes fpPulse3 {
+
+        0%,
+        100% {
+            transform: scale(1);
+            opacity: 0.3;
+        }
+
+        50% {
+            transform: scale(1.06);
+            opacity: 0.7;
+        }
+    }
+
+    .fp-modal-icon {
+        font-size: 3rem;
+        z-index: 2;
+        background: linear-gradient(135deg, #00f2ff, #bd00ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 0 8px rgba(0, 242, 255, 0.5));
+        animation: fpGlow2 2s ease-in-out infinite;
+    }
+
+    @keyframes fpGlow2 {
+
+        0%,
+        100% {
+            filter: drop-shadow(0 0 8px rgba(0, 242, 255, 0.4));
+        }
+
+        50% {
+            filter: drop-shadow(0 0 20px rgba(189, 0, 255, 0.6));
+        }
+    }
+
+    .status-msg {
+        font-size: 0.9rem;
+        min-height: 20px;
+    }
+
+    /* ── Utilities ── */
+    .highlight-text {
+        color: var(--primary-neon);
+        font-weight: bold;
+    }
+
+    .text-secondary {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+    }
+
+    .full-width {
+        width: 100%;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem;
+    }
+
+    .pdf-color {
+        color: #ff6b6b;
+    }
+
+    .image-color {
+        color: #00f2ff;
+    }
+
+    .text-color {
+        color: #bd00ff;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    @keyframes neonPulse {
+
+        0%,
+        100% {
+            opacity: 0.5;
+        }
+
+        50% {
+            opacity: 1;
+        }
+    }
+
+    .neon-pulse {
+        animation: neonPulse 2s ease-in-out infinite;
+    }
+
+    .ripple-btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+        .grid-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .stats-bar {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .header-content {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .stats-bar {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
 </style>
 
 <script>
-    // Variables
+    // ── Particle Background ──────────────────────────────────────────────────
+    (function () {
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H, particles = [];
+
+        function resize() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+
+        function Particle() {
+            this.x = Math.random() * W;
+            this.y = Math.random() * H;
+            this.r = Math.random() * 1.5 + 0.5;
+            this.vx = (Math.random() - 0.5) * 0.3;
+            this.vy = (Math.random() - 0.5) * 0.3;
+            this.alpha = Math.random() * 0.5 + 0.1;
+        }
+
+        function init() {
+            resize();
+            particles = Array.from({ length: 90 }, () => new Particle());
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+                if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 242, 255, ${p.alpha})`;
+                ctx.fill();
+            });
+            // Draw connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(0, 242, 255, ${0.04 * (1 - dist / 120)})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('resize', resize);
+        init();
+        draw();
+    })();
+
+    // ── Animated Stats Counter ───────────────────────────────────────────────
+    function animateCount(el, target) {
+        let current = 0;
+        const step = Math.max(1, Math.floor(target / 30));
+        const timer = setInterval(() => {
+            current = Math.min(current + step, target);
+            el.textContent = current;
+            if (current >= target) clearInterval(timer);
+        }, 40);
+    }
+
+    async function loadStats() {
+        try {
+            const res = await fetch('/dashboard_stats');
+            const d = await res.json();
+            animateCount(document.getElementById('docs-count'), d.docs || 0);
+            animateCount(document.getElementById('shared-out-count'), d.shared_out || 0);
+            animateCount(document.getElementById('shared-in-count'), d.shared_in || 0);
+            animateCount(document.getElementById('logs-count'), d.logs || 0);
+        } catch (e) { }
+    }
+    loadStats();
+
+    // ── Live Matrix Log Polling ───────────────────────────────────────────────
+    const terminal = document.getElementById('matrix-terminal');
+    const MAX_LINES = 12;
+
+    function addTerminalLine(user, action, details, time) {
+        const line = document.createElement('div');
+        line.className = 'matrix-line';
+        const t = time ? time.split(' ')[1] || time : new Date().toLocaleTimeString();
+        line.innerHTML = `<span class="time">[${t}]</span> <span class="user">@${user}</span> <span class="action">${action}</span> — ${details}`;
+        terminal.appendChild(line);
+        // Keep max lines
+        const lines = terminal.querySelectorAll('.matrix-line');
+        if (lines.length > MAX_LINES) lines[0].remove();
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    async function pollLogs() {
+        try {
+            const res = await fetch('/get_stats');
+            const logs = await res.json();
+            // Clear and repopulate
+            terminal.innerHTML = '';
+            logs.slice().reverse().forEach(l => addTerminalLine(l.user, l.action, l.details || '', l.time));
+        } catch (e) { }
+    }
+
+    pollLogs();
+    setInterval(pollLogs, 5000);
+
+    // ── OTP Modal (Share & Access) ────────────────────────────────────────────
+    // OTP digit wiring
+    document.querySelectorAll('#otp-modal-inputs .otp-digit').forEach((input, i, all) => {
+        input.addEventListener('input', () => {
+            input.value = input.value.replace(/\D/g, '');
+            if (input.value && i < all.length - 1) all[i + 1].focus();
+            input.classList.toggle('filled', !!input.value);
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+        });
+    });
+
+    function getModalOtp() {
+        return Array.from(document.querySelectorAll('#otp-modal-inputs .otp-digit')).map(d => d.value).join('');
+    }
+
+    function clearModalOtp() {
+        document.querySelectorAll('#otp-modal-inputs .otp-digit').forEach(d => { d.value = ''; d.classList.remove('filled'); });
+    }
+
+    let otpModalPurpose = null;
+    let otpModalCallback = null;
+    let otpResendTimer;
+
+    async function openOtpModal(purpose, callback) {
+        otpModalPurpose = purpose;
+        otpModalCallback = callback;
+        clearModalOtp();
+        document.getElementById('otp-modal-status').textContent = '';
+        document.getElementById('otp-modal-label').textContent = 'Sending OTP to your email...';
+        document.getElementById('otpModal').style.display = 'block';
+
+        try {
+            const res = await fetch('/send_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ purpose })
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('otp-modal-label').textContent = `OTP sent to ${data.masked_email}`;
+                Toast.show(data.message, 'success');
+                startOtpResendTimer();
+            } else {
+                document.getElementById('otp-modal-label').textContent = 'Failed to send OTP.';
+                document.getElementById('otp-modal-status').innerHTML = `<span style="color:#ff4d4d">${data.message}</span>`;
+            }
+        } catch (e) {
+            document.getElementById('otp-modal-label').textContent = 'Network error sending OTP.';
+        }
+        document.querySelector('#otp-modal-inputs .otp-digit').focus();
+    }
+
+    async function submitOtpModal() {
+        const otp = getModalOtp();
+        const statusEl = document.getElementById('otp-modal-status');
+        if (otp.length !== 6) { Toast.show('Enter the 6-digit OTP.', 'error'); return; }
+
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Verifying...</span>';
+
+        try {
+            const res = await fetch('/verify_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp, purpose: otpModalPurpose })
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:#00ff88">✅ OTP Verified!</span>';
+                Toast.show('OTP verified!', 'success');
+                clearInterval(otpResendTimer);
+                setTimeout(() => {
+                    const cb = otpModalCallback;  // save before closeOtpModal nulls it
+                    closeOtpModal();
+                    if (cb) cb();
+                }, 600);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${data.message}</span>`;
+                Toast.show(data.message, 'error');
+            }
+        } catch (e) { statusEl.innerHTML = '<span style="color:#ff4d4d">Network error.</span>'; }
+    }
+
+    function closeOtpModal() {
+        document.getElementById('otpModal').style.display = 'none';
+        clearInterval(otpResendTimer);
+        otpModalPurpose = null; otpModalCallback = null;
+    }
+
+    function startOtpResendTimer() {
+        let sec = 60;
+        document.getElementById('otp-resend-timer').style.display = 'inline';
+        document.getElementById('otp-resend-link').classList.add('hidden');
+        clearInterval(otpResendTimer);
+        otpResendTimer = setInterval(() => {
+            sec--;
+            document.getElementById('otp-resend-count').textContent = sec;
+            if (sec <= 0) {
+                clearInterval(otpResendTimer);
+                document.getElementById('otp-resend-timer').style.display = 'none';
+                document.getElementById('otp-resend-link').classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    async function resendOtpModal(e) {
+        e.preventDefault();
+        const res = await fetch('/send_otp', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ purpose: otpModalPurpose })
+        });
+        const data = await res.json();
+        Toast.show(data.message, data.success ? 'success' : 'error');
+        if (data.success) {
+            document.getElementById('otp-modal-label').textContent = `OTP sent to ${data.masked_email}`;
+            startOtpResendTimer();
+        }
+    }
+
+    // ── Share Modal ───────────────────────────────────────────────────────────
     let currentShareDocId = null;
     const chipContainer = document.getElementById('chipContainer');
     const memberIdInput = document.getElementById('memberIdInput');
     let memberIds = [];
 
-    value: 0.5
-                }
-
-                ,
-    shape: {
-        type: "circle"
-    }
-
-                ,
-    size: {
-        value: {
-            min: 1, max: 3
-        }
-    }
-            }
-
-            ,
-    detectRetina: true
-        });
-
-    // Decryption Animation Logic
-    // Decryption Animation REMOVED
-
-    // Matrix Log Polling & Simulation
     function showShareModal(docId, docName) {
         currentShareDocId = docId;
         document.getElementById('shareDocumentName').textContent = docName;
-        memberIds = []; // Reset
+        memberIds = [];
         renderChips();
         document.getElementById('shareModal').style.display = 'block';
         memberIdInput.focus();
@@ -646,184 +1424,156 @@
         currentShareDocId = null;
     }
 
-    // Chip Input Logic
+    window.onclick = function (event) {
+        if (event.target === document.getElementById('shareModal')) closeShareModal();
+        if (event.target === document.getElementById('otpModal')) closeOtpModal();
+    };
+
     memberIdInput.addEventListener('keydown', function (event) {
         if (event.key === 'Enter' || event.key === ' ' || event.key === ',') {
             event.preventDefault();
-            const value = this.value.trim();
-
-            if (value) {
-                addMemberId(value);
-                this.value = '';
-            }
-        }
-
-        else if (event.key === 'Backspace' && !this.value) {
-            if (memberIds.length > 0) {
-                removeMemberId(memberIds.length - 1);
-            }
+            const val = this.value.trim();
+            if (val) { addMemberId(val); this.value = ''; }
+        } else if (event.key === 'Backspace' && !this.value) {
+            if (memberIds.length > 0) removeMemberId(memberIds.length - 1);
         }
     });
 
     function addMemberId(id) {
-
-        // Validation: 6 digits
-        if (!/^\d {
-                    6
-    }
-
-    $ /.test(id)) {
-        Toast.show('ID must be 6 digits.', 'error');
-        return;
-    }
-
-    if (memberIds.includes(id)) {
-        Toast.show('ID already added.', 'warning');
-        return;
-    }
-
-    if (memberIds.length >= 10) {
-        Toast.show('Max 10 recipients.', 'warning');
-        return;
-    }
-
-    memberIds.push(id);
-    renderChips();
-        }
-
-    function removeMemberId(index) {
-        memberIds.splice(index, 1);
+        if (!/^\d{6}$/.test(id)) { Toast.show('Member ID must be exactly 6 digits.', 'error'); return; }
+        if (memberIds.includes(id)) { Toast.show('ID already added.', 'warning'); return; }
+        if (memberIds.length >= 10) { Toast.show('Max 10 recipients allowed.', 'warning'); return; }
+        memberIds.push(id);
         renderChips();
     }
 
-    function renderChips() {
-        // Clear existing chips only (keep input)
-        const chips = chipContainer.querySelectorAll('.chip');
-        chips.forEach(chip => chip.remove());
+    function removeMemberId(index) { memberIds.splice(index, 1); renderChips(); }
 
+    function renderChips() {
+        chipContainer.querySelectorAll('.chip').forEach(c => c.remove());
         memberIds.forEach((id, index) => {
             const chip = document.createElement('div');
             chip.className = 'chip';
-
-            chip.innerHTML = `<span>${id}</span>
-                <i class="fas fa-times" onclick="removeMemberId(${index})"></i>`;
+            chip.innerHTML = `<span>${id}</span><i class="fas fa-times" onclick="removeMemberId(${index})"></i>`;
             chipContainer.insertBefore(chip, memberIdInput);
         });
     }
 
-    window.onclick = function (event) {
-        const modal = document.getElementById('shareModal');
-
-        if (event.target == modal) {
-            closeShareModal();
-        }
-    }
-
-    // API Calls
     async function shareDocument() {
         const currentInput = memberIdInput.value.trim();
-
-        // Auto-add text input if it's a valid ID and user didn't hit enter
         if (currentInput && /^\d{6}$/.test(currentInput) && !memberIds.includes(currentInput)) {
-            memberIds.push(currentInput);
+            memberIds.push(currentInput); memberIdInput.value = '';
         }
+        if (memberIds.length === 0) { Toast.show('Please add at least one Member ID.', 'error'); return; }
 
-        if (memberIds.length === 0) {
-            Toast.show('Please enter or add at least one Member ID.', 'error');
-            return;
-        }
+        // Close share modal, open OTP modal first
+        const docData = {
+            document_id: currentShareDocId,
+            member_ids: memberIds,
+            security_level: document.getElementById('securityLevel').value
+        };
+        closeShareModal();
 
-        try {
-            const response = await fetch('/share_document', {
-
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+        await openOtpModal('share', async () => {
+            try {
+                const res = await fetch('/share_document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(docData)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    Toast.show(result.message, 'success');
+                    launchConfetti();
+                } else {
+                    Toast.show(result.message || 'Share failed.', 'error');
                 }
-
-                ,
-                body: JSON.stringify({
-                    document_id: currentShareDocId,
-                    member_ids: memberIds,
-                    security_level: document.getElementById('securityLevel').value
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                Toast.show(result.message, 'success');
-                closeShareModal();
-            }
-
-            else {
-                Toast.show(result.message, 'error');
-            }
-        }
-
-        catch (error) {
-            console.error(error);
-            Toast.show('Network error', 'error');
-        }
+            } catch (e) { Toast.show('Network error.', 'error'); }
+        });
     }
 
+    // ── Accept / Reject Shares ────────────────────────────────────────────────
     async function acceptShare(shareId) {
-        if (!confirm('Accept this document?')) return;
-
+        if (!confirm('Accept this shared document?')) return;
         try {
-            const response = await fetch(`/accept_share/${shareId}`, {
-                method: 'POST'
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                Toast.show('Document accepted', 'success');
-                setTimeout(() => location.reload(), 1000);
-            }
-
-            else {
-                Toast.show(result.message, 'error');
-            }
-        }
-
-        catch (error) {
-            Toast.show('Network error', 'error');
-        }
+            const res = await fetch(`/accept_share/${shareId}`, { method: 'POST' });
+            const result = await res.json();
+            if (result.success) { Toast.show('Document accepted!', 'success'); setTimeout(() => location.reload(), 1000); }
+            else Toast.show(result.message || 'Failed.', 'error');
+        } catch (e) { Toast.show('Network error.', 'error'); }
     }
 
     async function rejectShare(shareId) {
-        if (!confirm('Reject request?')) return;
-
+        if (!confirm('Reject this share request?')) return;
         try {
-            const response = await fetch(`/reject_share/${shareId}`, {
-                method: 'POST'
-            });
-            const result = await response.json();
-
-            if (result.success) {
-                Toast.show('Request rejected', 'success');
-                setTimeout(() => location.reload(), 1000);
-            }
-
-            else {
-                Toast.show(result.message, 'error');
-            }
-        }
-
-        catch (error) {
-            Toast.show('Network error', 'error');
-        }
+            const res = await fetch(`/reject_share/${shareId}`, { method: 'POST' });
+            const result = await res.json();
+            if (result.success) { Toast.show('Request rejected.', 'success'); setTimeout(() => location.reload(), 1000); }
+            else Toast.show(result.message || 'Failed.', 'error');
+        } catch (e) { Toast.show('Network error.', 'error'); }
     }
 
-    // File Preview Helper
+    // ── Confetti Burst ────────────────────────────────────────────────────────
+    function launchConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.style.display = 'block';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const pieces = Array.from({ length: 60 }, () => ({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            w: Math.random() * 10 + 5,
+            h: Math.random() * 6 + 3,
+            color: `hsl(${Math.random() * 360}, 80%, 60%)`,
+            rotation: Math.random() * Math.PI,
+            vx: (Math.random() - 0.5) * 4,
+            vy: Math.random() * 4 + 2,
+            vr: (Math.random() - 0.5) * 0.2
+        }));
+        let frame = 0;
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let alive = false;
+            pieces.forEach(p => {
+                if (p.y < canvas.height + 20) { alive = true; }
+                p.x += p.vx; p.y += p.vy; p.rotation += p.vr;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, 1 - frame / 80);
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+            });
+            frame++;
+            if (frame < 90) requestAnimationFrame(animate);
+            else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = 'none'; }
+        }
+        animate();
+    }
+
+    // ── File Preview ──────────────────────────────────────────────────────────
     document.getElementById('document').addEventListener('change', function (e) {
         const fileName = e.target.files[0]?.name;
         const uploadContent = document.querySelector('.upload-content');
-
         if (fileName) {
-            uploadContent.innerHTML = `<i class="fas fa-check-circle" style="color: var(--primary-neon); font-size: 3rem;"></i><p>${fileName}</p>`;
+            uploadContent.innerHTML = `<i class="fas fa-check-circle" style="color:var(--primary-neon);font-size:3rem"></i><p>${fileName}</p>`;
         }
     });
-
+    // ── OTP digit CSS (via JS so it works inline) ─────────────────────────────
+    const otpStyle = document.createElement('style');
+    otpStyle.textContent = `
+        .otp-inputs { display:flex; justify-content:center; gap:10px; margin:1.5rem 0; }
+        .otp-digit  { width:46px; height:52px; text-align:center; font-size:1.4rem; font-weight:700;
+                      background:rgba(0,0,0,0.4); border:2px solid rgba(0,242,255,0.25); border-radius:10px;
+                      color:#fff; outline:none; transition:all 0.2s ease; }
+        .otp-digit:focus  { border-color:#00f2ff; box-shadow:0 0 15px rgba(0,242,255,0.3); }
+        .otp-digit.filled { border-color:rgba(0,242,255,0.6); background:rgba(0,242,255,0.08); }
+        .hidden { display:none !important; }
+        .resend-row { text-align:center; }
+    `;
+    document.head.appendChild(otpStyle);
 </script>
 {% endblock %}

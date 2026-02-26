@@ -1,50 +1,55 @@
 {% extends "base.html" %}
-
-{% block title %}Login - Face Auth Document Locker{% endblock %}
+{% block title %}Login - SecureDoc Vault{% endblock %}
 
 {% block content %}
 <div class="auth-wrapper">
     <div class="glass-card auth-card">
-        <h2 class="text-center">Secure Login</h2>
-        <p class="text-center mb-4" style="color: var(--text-secondary)">Identify yourself to access your vault</p>
+        <h2 class="text-center neon-title">Secure Login</h2>
+        <p class="text-center mb-4 text-secondary">Multi-Factor Vault Authentication</p>
 
+        <!-- 4-step progress -->
         <div class="login-progress">
-            <div class="progress-step active" id="prog-1">1</div>
-            <div class="progress-line"></div>
-            <div class="progress-step" id="prog-2">2</div>
-            <div class="progress-line"></div>
-            <div class="progress-step" id="prog-3">3</div>
+            <div class="prog-step active" id="prog-1"><i class="fas fa-user"></i></div>
+            <div class="prog-line" id="line-1"></div>
+            <div class="prog-step" id="prog-2"><i class="fas fa-camera"></i></div>
+            <div class="prog-line" id="line-2"></div>
+            <div class="prog-step" id="prog-3"><i class="fas fa-key"></i></div>
+            <div class="prog-line" id="line-3"></div>
+            <div class="prog-step" id="prog-4"><i class="fas fa-envelope-open-text"></i></div>
+        </div>
+        <div class="prog-labels">
+            <span>Identity</span><span>Face</span><span>PIN</span><span>Email OTP</span>
         </div>
 
         <div class="login-steps-container">
+
             <!-- Step 1: Username -->
             <div class="step step-1 active">
-                <h3><i class="fas fa-user"></i> Identity Check</h3>
+                <h3><i class="fas fa-user-shield"></i> Identity Check</h3>
                 <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" placeholder="Enter your username" required>
+                    <label>Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" autocomplete="username">
                 </div>
                 <div class="step-actions">
-                    <button type="button" class="btn btn-primary" onclick="startFaceVerification()">
-                        Next Step <i class="fas fa-arrow-right"></i>
+                    <button class="btn btn-primary ripple-btn" onclick="startFaceVerification()">
+                        <i class="fas fa-arrow-right"></i> Continue
                     </button>
                 </div>
             </div>
 
             <!-- Step 2: Face Auth -->
             <div class="step step-2">
-                <h3><i class="fas fa-face-viewfinder"></i> Biometric Verify</h3>
-                <p class="instruction-text">Look directly at the camera. Ensure good lighting.</p>
-
+                <h3><i class="fas fa-face-viewfinder"></i> Biometric Scan</h3>
+                <p class="hint-text">Look directly at the camera. Ensure good lighting.</p>
                 <div class="camera-wrapper">
                     <video id="video" autoplay muted playsinline></video>
-                    <canvas id="canvas" style="display: none;"></canvas>
+                    <canvas id="canvas" style="display:none"></canvas>
                     <div class="scan-overlay"></div>
                     <div class="scan-line"></div>
+                    <div class="face-grid"></div>
                 </div>
-
                 <div class="step-actions center">
-                    <button type="button" class="btn btn-primary" id="verify-btn" onclick="captureAndVerifyFace()">
+                    <button class="btn btn-primary ripple-btn" id="verify-btn" onclick="captureAndVerifyFace()">
                         <i class="fas fa-camera"></i> Verify Face
                     </button>
                     <div id="face-status" class="status-message"></div>
@@ -55,28 +60,59 @@
             <div class="step step-3">
                 <h3><i class="fas fa-key"></i> Security PIN</h3>
                 <div class="form-group">
-                    <label for="pin">Enter 4-Digit PIN</label>
+                    <label>Enter 4-Digit PIN</label>
                     <div class="pin-input-container">
-                        <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="••••" required>
+                        <input type="password" id="pin" pattern="\d{4}" maxlength="4" placeholder="••••">
+                    </div>
+                    <div class="pin-dots">
+                        <span class="dot" id="d0"></span><span class="dot" id="d1"></span>
+                        <span class="dot" id="d2"></span><span class="dot" id="d3"></span>
                     </div>
                 </div>
                 <div class="step-actions">
-                    <button type="button" class="btn btn-primary" onclick="verifyPin()">
-                        <i class="fas fa-lock-open"></i> Unlock Vault
+                    <button class="btn btn-primary ripple-btn" onclick="verifyPin()">
+                        <i class="fas fa-lock-open"></i> Verify PIN
                     </button>
                 </div>
                 <div id="pin-status" class="status-message"></div>
             </div>
+
+            <!-- Step 4: Email OTP -->
+            <div class="step step-4">
+                <h3><i class="fas fa-envelope-open-text"></i> Email Verification</h3>
+                <div class="otp-box">
+                    <i class="fas fa-mailbox otp-icon neon-pulse"></i>
+                    <p id="otp-sent-label" class="hint-text">OTP sent to your registered email</p>
+                    <div class="otp-inputs" id="otp-inputs">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+                    </div>
+                </div>
+                <div class="step-actions">
+                    <button class="btn btn-primary ripple-btn" onclick="verifyLoginOtp()">
+                        <i class="fas fa-check-circle"></i> Verify OTP &amp; Login
+                    </button>
+                </div>
+                <div class="resend-row">
+                    <span class="text-secondary" id="resend-timer">Resend in <span id="resend-count">60</span>s</span>
+                    <a href="#" id="resend-link" class="hidden link-highlight" onclick="resendLoginOtp(event)">Resend
+                        OTP</a>
+                </div>
+                <div id="otp-status" class="status-message"></div>
+            </div>
         </div>
 
         <p class="auth-footer text-center mt-4">
-            New here? <a href="{{ url_for('signup') }}" class="link-highlight">Create a Secure Account</a>
+            New here? <a href="{{ url_for('signup') }}" class="link-highlight">Create Secure Account</a>
         </p>
     </div>
 </div>
 
 <style>
-    /* Auth Specific Styles */
     .auth-wrapper {
         display: flex;
         justify-content: center;
@@ -86,82 +122,169 @@
 
     .auth-card {
         width: 100%;
-        max-width: 450px;
-        padding: 3rem;
+        max-width: 460px;
+        padding: 2.5rem;
+        animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
 
-    /* Progress Indicators */
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    .neon-title {
+        font-size: 1.8rem;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.3rem;
+    }
+
+    .text-secondary {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+    }
+
+    .mb-4 {
+        margin-bottom: 1.5rem;
+    }
+
+    .mt-4 {
+        margin-top: 1.5rem;
+    }
+
+    /* Progress */
     .login-progress {
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-bottom: 3rem;
-        position: relative;
+        margin-bottom: 0.3rem;
     }
 
-    .progress-step {
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        color: var(--text-secondary);
+    .prog-labels {
         display: flex;
-        justify-content: center;
+        justify-content: space-between;
+        margin-bottom: 2.5rem;
+        font-size: 0.62rem;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .prog-step {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.4);
+        display: flex;
         align-items: center;
-        font-weight: bold;
-        border: 2px solid var(--glass-border);
-        transition: 0.4s ease;
+        justify-content: center;
+        font-size: 0.95rem;
+        transition: all 0.4s ease;
+        flex-shrink: 0;
         z-index: 2;
     }
 
-    .progress-step.active {
-        background: var(--primary-color);
+    .prog-step.active {
+        background: linear-gradient(135deg, #00f2ff, #bd00ff);
         color: #000;
-        box-shadow: 0 0 15px var(--primary-color);
-        border-color: var(--primary-color);
+        border-color: transparent;
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.6);
+        transform: scale(1.1);
     }
 
-    .progress-line {
-        width: 50px;
+    .prog-step.done {
+        background: rgba(0, 255, 136, 0.1);
+        color: #00ff88;
+        border-color: #00ff88;
+        transform: scale(1);
+    }
+
+    .prog-line {
+        flex: 1;
         height: 2px;
-        background: rgba(255, 255, 255, 0.1);
-        margin: 0 5px;
+        background: rgba(255, 255, 255, 0.07);
+        margin: 0 2px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .prog-line.filled::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        animation: fillLine 0.5s ease forwards;
+    }
+
+    @keyframes fillLine {
+        from {
+            width: 0
+        }
+
+        to {
+            width: 100%
+        }
     }
 
     /* Steps */
     .step {
         display: none;
-        animation: fadeIn 0.5s ease;
+        animation: fadeSlide 0.4s ease;
     }
 
     .step.active {
         display: block;
     }
 
-    .step h3 {
-        text-align: center;
-        margin-bottom: 2rem;
-        font-size: 1.4rem;
+    @keyframes fadeSlide {
+        from {
+            opacity: 0;
+            transform: translateX(20px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0)
+        }
     }
 
-    .instruction-text {
+    .step h3 {
         text-align: center;
-        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 1.3rem;
+        background: linear-gradient(90deg, #fff, #00f2ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hint-text {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
         margin-bottom: 1.5rem;
         font-size: 0.9rem;
     }
 
-    /* Camera UI */
+    /* Camera */
     .camera-wrapper {
         position: relative;
         width: 100%;
         border-radius: 15px;
         overflow: hidden;
         margin-bottom: 1.5rem;
-        border: 2px solid var(--glass-border);
-        box-shadow: 0 0 20px rgba(0, 242, 255, 0.1);
+        border: 2px solid rgba(0, 242, 255, 0.3);
+        box-shadow: 0 0 30px rgba(0, 242, 255, 0.12);
         aspect-ratio: 4/3;
-        background: black;
+        background: #000;
     }
 
     #video {
@@ -172,13 +295,21 @@
 
     .scan-overlay {
         position: absolute;
-        top: 20%;
-        left: 20%;
-        right: 20%;
-        bottom: 20%;
-        border: 2px solid rgba(255, 255, 255, 0.5);
-        border-radius: 20px;
-        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+        top: 15%;
+        left: 15%;
+        right: 15%;
+        bottom: 15%;
+        border: 2px solid rgba(0, 242, 255, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.45);
+        pointer-events: none;
+    }
+
+    .face-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+        background-size: 30px 30px;
         pointer-events: none;
     }
 
@@ -187,32 +318,110 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 2px;
-        background: var(--primary-color);
-        box-shadow: 0 0 10px var(--primary-color);
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #00f2ff, transparent);
+        box-shadow: 0 0 12px #00f2ff;
         animation: scan 2s linear infinite;
         display: none;
-        /* Shown during verification */
     }
 
     @keyframes scan {
         0% {
-            top: 0;
+            top: 0
         }
 
         100% {
-            top: 100%;
+            top: 100%
         }
     }
 
+    /* PIN */
     .pin-input-container input {
         font-size: 1.5rem;
         letter-spacing: 0.5rem;
         text-align: center;
+        background: rgba(0, 0, 0, 0.3);
+        width: 100%;
+    }
+
+    .pin-dots {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .dot.filled {
+        background: #00f2ff;
+        border-color: #00f2ff;
+        box-shadow: 0 0 10px #00f2ff;
+    }
+
+    /* OTP */
+    .otp-box {
+        text-align: center;
+        padding: 1.5rem 0 1rem;
+    }
+
+    .otp-icon {
+        font-size: 3.5rem;
+        color: #00f2ff;
+        display: block;
+        margin-bottom: 0.8rem;
+        filter: drop-shadow(0 0 10px #00f2ff);
+    }
+
+    .otp-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin: 1.5rem 0;
+    }
+
+    .otp-digit {
+        width: 46px;
+        height: 52px;
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 700;
+        background: rgba(0, 0, 0, 0.4);
+        border: 2px solid rgba(0, 242, 255, 0.25);
+        border-radius: 10px;
+        color: #fff;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .otp-digit:focus {
+        border-color: #00f2ff;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+    }
+
+    .otp-digit.filled {
+        border-color: rgba(0, 242, 255, 0.6);
+        background: rgba(0, 242, 255, 0.08);
+    }
+
+    .resend-row {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+    }
+
+    .hidden {
+        display: none;
     }
 
     .link-highlight {
-        color: var(--primary-color);
+        color: #00f2ff;
         text-decoration: none;
         font-weight: 600;
     }
@@ -221,11 +430,12 @@
         text-decoration: underline;
     }
 
+    /* Actions */
     .step-actions {
         margin-top: 1.5rem;
         display: flex;
-        justify-content: center;
         flex-direction: column;
+        gap: 8px;
     }
 
     .status-message {
@@ -235,75 +445,90 @@
         font-size: 0.9rem;
     }
 
-    .status-message .success {
-        color: var(--success);
+    .ripple-btn {
+        position: relative;
+        overflow: hidden;
     }
 
-    .status-message .error {
-        color: var(--error);
+    @keyframes neonPulse {
+
+        0%,
+        100% {
+            opacity: 0.6
+        }
+
+        50% {
+            opacity: 1
+        }
     }
 
-    .status-message .info {
-        color: var(--primary-color);
+    .neon-pulse {
+        animation: neonPulse 2s ease-in-out infinite;
     }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    let currentStep = 1;
     let stream;
+    let resendTimer;
 
-    function updateProgress(step) {
-        document.querySelectorAll('.progress-step').forEach((el, idx) => {
-            if (idx + 1 <= step) el.classList.add('active');
-            else el.classList.remove('active');
+    // ── OTP digit inputs ─────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('pin').addEventListener('input', function () {
+            const len = this.value.length;
+            for (let i = 0; i < 4; i++) {
+                document.getElementById('d' + i).classList.toggle('filled', i < len);
+            }
+        });
+        document.querySelectorAll('.otp-digit').forEach((input, i, all) => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '');
+                if (input.value && i < all.length - 1) all[i + 1].focus();
+                input.classList.toggle('filled', !!input.value);
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+            });
+        });
+        // Allow Enter on PIN field
+        document.getElementById('pin').addEventListener('keydown', e => { if (e.key === 'Enter') verifyPin(); });
+    });
+
+    function getOtpValue() {
+        return Array.from(document.querySelectorAll('.otp-digit')).map(d => d.value).join('');
+    }
+
+    // ── Progress ─────────────────────────────────────────────────────────────
+    function showStep(n) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.querySelector(`.step-${n}`).classList.add('active');
+        document.querySelectorAll('.prog-step').forEach((el, idx) => {
+            el.classList.remove('active', 'done');
+            if (idx + 1 < n) el.classList.add('done');
+            else if (idx + 1 === n) el.classList.add('active');
+        });
+        document.querySelectorAll('.prog-line').forEach((l, idx) => {
+            l.classList.toggle('filled', idx + 1 < n);
         });
     }
 
-    function showStep(step) {
-        // Check constraints before moving
-        if (step === 2 && !document.getElementById('username').value) {
-            Toast.show("Please enter your username", "error");
-            return;
-        }
-
-        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-        document.querySelector(`.step-${step}`).classList.add('active');
-        currentStep = step;
-        updateProgress(step);
-    }
-
+    // ── Step 1 ────────────────────────────────────────────────────────────────
     function startFaceVerification() {
         const username = document.getElementById('username').value.trim();
-        if (!username) {
-            Toast.show('Please enter username', 'error');
-            return;
-        }
-
+        if (!username) { Toast.show('Please enter your username.', 'error'); return; }
         showStep(2);
         startCamera();
     }
 
     function startCamera() {
         const video = document.getElementById('video');
-
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-                .then(function (mediaStream) {
-                    stream = mediaStream;
-                    video.srcObject = stream;
-                    video.play();
-                })
-                .catch(function (error) {
-                    console.error('Camera error:', error);
-                    Toast.show('Camera access denied. Please allow camera permissions.', 'error');
-                });
-        } else {
-            Toast.show('Camera API not supported in this browser.', 'error');
-        }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            .then(s => { stream = s; video.srcObject = s; video.play(); })
+            .catch(() => Toast.show('Camera access denied.', 'error'));
     }
 
+    // ── Step 2: Face ──────────────────────────────────────────────────────────
     function captureAndVerifyFace() {
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -312,98 +537,147 @@
         const verifyBtn = document.getElementById('verify-btn');
         const statusEl = document.getElementById('face-status');
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
-
-        // UI Feedback
         scanLine.style.display = 'block';
         verifyBtn.disabled = true;
         verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
-        statusEl.innerHTML = '<span class="info">Verifying biometrics...</span>';
-
-        const imageData = canvas.toDataURL('image/jpeg', 0.95);
-        const username = document.getElementById('username').value;
+        statusEl.innerHTML = '<span style="color:#00f2ff">Verifying biometrics...</span>';
 
         fetch('/verify_face', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username: username,
-                image: imageData
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: document.getElementById('username').value, image: canvas.toDataURL('image/jpeg', 0.95) })
         })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
                 scanLine.style.display = 'none';
                 verifyBtn.disabled = false;
                 verifyBtn.innerHTML = '<i class="fas fa-camera"></i> Verify Face';
-
                 if (data.success) {
-                    statusEl.innerHTML = '<span class="success"><i class="fas fa-check-circle"></i> Identity Verified</span>';
+                    statusEl.innerHTML = '<span style="color:#00ff88"><i class="fas fa-check-circle"></i> Identity Verified</span>';
                     Toast.show(data.message, 'success');
                     stopCamera();
                     setTimeout(() => showStep(3), 1000);
                 } else {
-                    statusEl.innerHTML = '<span class="error"><i class="fas fa-times-circle"></i> Verification Failed</span>';
+                    statusEl.innerHTML = '<span style="color:#ff4d4d"><i class="fas fa-times-circle"></i> Failed</span>';
                     Toast.show(data.message + ' Try better lighting.', 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
+            .catch(() => {
                 scanLine.style.display = 'none';
                 verifyBtn.disabled = false;
                 verifyBtn.innerHTML = '<i class="fas fa-camera"></i> Verify Face';
-                statusEl.innerHTML = '<span class="error">System Error</span>';
-                Toast.show('System error during verification', 'error');
+                Toast.show('System error', 'error');
             });
     }
 
-    function verifyPin() {
+    // ── Step 3: PIN → sends OTP ───────────────────────────────────────────────
+    async function verifyPin() {
         const pin = document.getElementById('pin').value;
         const username = document.getElementById('username').value;
+        const statusEl = document.getElementById('pin-status');
+        if (pin.length !== 4) { Toast.show('Enter a 4-digit PIN.', 'error'); return; }
 
-        if (pin.length !== 4) {
-            Toast.show('Please enter a 4-digit PIN', 'error');
-            return;
-        }
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Verifying...</span>';
 
-        fetch('/verify_pin', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                username: username,
-                pin: pin
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                const statusEl = document.getElementById('pin-status');
-                if (data.success) {
-                    statusEl.innerHTML = '<span class="success">✅ Verified</span>';
-                    Toast.show('Login successful! Redirecting...', 'success');
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
-                } else {
-                    statusEl.innerHTML = '<span class="error">❌ Invalid PIN</span>';
-                    Toast.show(data.message, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Toast.show('Login failed due to system error', 'error');
+        try {
+            const r1 = await fetch('/verify_pin', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, pin })
             });
+            const d1 = await r1.json();
+            if (!d1.success) {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${d1.message}</span>`;
+                Toast.show(d1.message, 'error'); return;
+            }
+            if (!d1.require_otp) {
+                // Duress login — go directly
+                statusEl.innerHTML = '<span style="color:#00ff88">✅ Vault Unlocked</span>';
+                Toast.show('Login successful!', 'success');
+                setTimeout(() => window.location.href = '/dashboard', 1000); return;
+            }
+
+            // PIN OK — now send OTP
+            statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Sending OTP to email...</span>';
+            const r2 = await fetch('/send_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ purpose: 'login' })
+            });
+            const d2 = await r2.json();
+            if (d2.success) {
+                document.getElementById('otp-sent-label').textContent = `OTP sent to ${d2.masked_email}`;
+                statusEl.innerHTML = `<span style="color:#00ff88">✅ PIN OK — OTP sent to ${d2.masked_email}</span>`;
+                Toast.show(d2.message, 'success');
+                setTimeout(() => { showStep(4); startResendTimer(); document.querySelector('.otp-digit').focus(); }, 800);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${d2.message}</span>`;
+                Toast.show(d2.message, 'error');
+            }
+        } catch (e) { Toast.show('Network error.', 'error'); }
+    }
+
+    // ── Step 4: OTP → Complete Login ─────────────────────────────────────────
+    async function verifyLoginOtp() {
+        const otp = getOtpValue();
+        const statusEl = document.getElementById('otp-status');
+        if (otp.length !== 6) { Toast.show('Enter the 6-digit OTP.', 'error'); return; }
+
+        statusEl.innerHTML = '<span style="color:#00f2ff"><i class="fas fa-spinner fa-spin"></i> Verifying...</span>';
+
+        try {
+            const r1 = await fetch('/verify_otp', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp, purpose: 'login' })
+            });
+            const d1 = await r1.json();
+            if (!d1.success) {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${d1.message}</span>`;
+                Toast.show(d1.message, 'error'); return;
+            }
+
+            // OTP good — complete login
+            const r2 = await fetch('/complete_login', { method: 'POST' });
+            const d2 = await r2.json();
+            if (d2.success) {
+                statusEl.innerHTML = '<span style="color:#00ff88">🔐 Vault Unlocked!</span>';
+                Toast.show('Login successful! Redirecting...', 'success');
+                clearInterval(resendTimer);
+                setTimeout(() => window.location.href = '/dashboard', 1000);
+            } else {
+                statusEl.innerHTML = `<span style="color:#ff4d4d">❌ ${d2.message}</span>`;
+                Toast.show(d2.message, 'error');
+            }
+        } catch (e) { Toast.show('Network error.', 'error'); }
+    }
+
+    // ── Resend timer ──────────────────────────────────────────────────────────
+    function startResendTimer() {
+        let sec = 60;
+        document.getElementById('resend-timer').style.display = 'inline';
+        document.getElementById('resend-link').classList.add('hidden');
+        clearInterval(resendTimer);
+        resendTimer = setInterval(() => {
+            sec--;
+            document.getElementById('resend-count').textContent = sec;
+            if (sec <= 0) {
+                clearInterval(resendTimer);
+                document.getElementById('resend-timer').style.display = 'none';
+                document.getElementById('resend-link').classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    async function resendLoginOtp(e) {
+        e.preventDefault();
+        const res = await fetch('/send_otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purpose: 'login' }) });
+        const data = await res.json();
+        Toast.show(data.message, data.success ? 'success' : 'error');
+        if (data.success) startResendTimer();
     }
 
     function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
+        if (stream) stream.getTracks().forEach(t => t.stop());
     }
 </script>
 {% endblock %}

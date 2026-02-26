@@ -2,7 +2,7 @@
 venv/
 env/
 .venv/
-.env/
+
 
 # User Data and Uploads
 uploads/
@@ -22,7 +22,7 @@ __pycache__/
 *.so
 
 # Environment Variables
-.env
+
 .env.local
 .env.production
 .env.staging
