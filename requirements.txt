@@ -7,3 +7,4 @@ Werkzeug>=2.3.7
 numpy>=1.26.0
 requests>=2.31.0
 webauthn>=2.0.0
+cryptography>=41.0.0

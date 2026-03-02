@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 from werkzeug.utils import secure_filename
 import os
 import cv2
@@ -19,6 +19,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+import hashlib
+from cryptography.fernet import Fernet
 
 load_dotenv()
 
@@ -38,6 +40,14 @@ SMTP_PORT     = int(os.getenv('SMTP_PORT', 587))
 SMTP_USER     = os.getenv('SMTP_USER',     'securedocverify@gmail.com')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'ekpi xbff losj dvnk')
 EMAIL_FROM    = os.getenv('EMAIL_FROM',    'securedocverify@gmail.com')
+
+# ── Encryption Key ────────────────────────────────────────────────────────────
+_raw_enc_key = os.getenv('ENCRYPTION_KEY', '')
+if not _raw_enc_key:
+    _raw_enc_key = Fernet.generate_key().decode()
+    print(f"[WARNING] ENCRYPTION_KEY not set in .env — generated a temporary key.")
+    print(f"[WARNING] Add this to your .env to persist across restarts: ENCRYPTION_KEY={_raw_enc_key}")
+ENCRYPTION_KEY = _raw_enc_key
 
 OTP_EXPIRY_MINUTES = 10  # OTP valid for 10 minutes
 
@@ -145,6 +155,7 @@ def init_db():
             filename TEXT NOT NULL,
             original_filename TEXT NOT NULL,
             file_path TEXT NOT NULL,
+            file_hash TEXT,
             upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
@@ -204,6 +215,12 @@ def migrate_db():
             if col not in cols:
                 cursor.execute(f'ALTER TABLE shared_documents ADD COLUMN {col} {defn}')
 
+        # Ensure file_hash column exists in documents (for existing DBs)
+        cursor.execute('PRAGMA table_info(documents)')
+        doc_cols = [r[1] for r in cursor.fetchall()]
+        if 'file_hash' not in doc_cols:
+            cursor.execute('ALTER TABLE documents ADD COLUMN file_hash TEXT')
+
         # Ensure otp_tokens table exists (for existing DBs)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS otp_tokens (
@@ -252,6 +269,23 @@ def hash_pin(pin):
 
 def verify_pin(pin, hashed):
     return bcrypt.checkpw(pin.encode('utf-8'), hashed)
+
+# ── Document Encryption / Integrity ──────────────────────────────────────────
+def _get_fernet():
+    """Return a Fernet instance using the app encryption key."""
+    return Fernet(ENCRYPTION_KEY.encode())
+
+def encrypt_file(data: bytes) -> bytes:
+    """Encrypt raw file bytes using AES (Fernet/AES-128-CBC)."""
+    return _get_fernet().encrypt(data)
+
+def decrypt_file(data: bytes) -> bytes:
+    """Decrypt file bytes that were previously encrypted with encrypt_file."""
+    return _get_fernet().decrypt(data)
+
+def hash_file(data: bytes) -> str:
+    """Return the SHA-256 hex digest of file bytes (for integrity checking)."""
+    return hashlib.sha256(data).hexdigest()
 
 # ── OTP System ────────────────────────────────────────────────────────────────
 def generate_otp():
@@ -682,14 +716,24 @@ def upload_document():
         filename    = secure_filename(file.filename)
         unique_name = f"{uuid.uuid4().hex}_{filename}"
         path        = os.path.join(app.config['UPLOAD_FOLDER'], unique_name)
-        file.save(path)
+
+        # ── Read, hash, then encrypt before saving ────────────────────────────
+        raw_bytes    = file.read()                    # original plaintext bytes
+        doc_hash     = hash_file(raw_bytes)           # SHA-256 of plaintext
+        enc_bytes    = encrypt_file(raw_bytes)        # AES-encrypt (Fernet)
+        with open(path, 'wb') as f:
+            f.write(enc_bytes)                        # only encrypted data on disk
+
         conn   = sqlite3.connect('users.db')
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO documents (user_id, filename, original_filename, file_path) VALUES (?, ?, ?, ?)',
-                       (session['user_id'], unique_name, filename, path))
+        cursor.execute(
+            'INSERT INTO documents (user_id, filename, original_filename, file_path, file_hash) VALUES (?, ?, ?, ?, ?)',
+            (session['user_id'], unique_name, filename, path, doc_hash)
+        )
         conn.commit()
         conn.close()
-        flash('Upload successful!', 'success')
+        log_access(session['user_id'], 'UPLOAD', f'Uploaded & encrypted: {filename}')
+        flash('Upload successful! (Document encrypted & hashed)', 'success')
     else:
         flash('Invalid file!', 'error')
     return redirect(url_for('dashboard'))
@@ -865,20 +909,132 @@ def verify_document_access():
         content = ""
         try:
             with open(file_path, 'rb') as f:
-                raw = f.read()
+                enc_bytes = f.read()
+
+            # ── Decrypt the file ─────────────────────────────────────────────
+            try:
+                raw = decrypt_file(enc_bytes)
+            except Exception:
+                # Fallback for documents uploaded before encryption was added
+                raw = enc_bytes
+
+            # ── Integrity check (hash) ────────────────────────────────────────
+            stored_hash = None
+            try:
+                conn2   = sqlite3.connect('users.db')
+                cur2    = conn2.cursor()
+                cur2.execute('SELECT file_hash FROM documents WHERE file_path = ?', (file_path,))
+                row2 = cur2.fetchone()
+                conn2.close()
+                if row2: stored_hash = row2[0]
+            except Exception:
+                pass
+
+            integrity_ok = True
+            if stored_hash:
+                integrity_ok = (hash_file(raw) == stored_hash)
+
+            if not integrity_ok:
+                log_access(session['user_id'], 'INTEGRITY_FAIL', f'Hash mismatch for {filename}', doc_id)
+                return jsonify({'success': False, 'message': 'Integrity check failed — file may have been tampered with.'})
+
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+            is_image = ext in ('png', 'jpg', 'jpeg', 'gif', 'webp')
+            is_pdf   = ext == 'pdf'
+
+            if is_image or is_pdf:
+                content  = ''  # not used for binary types
+            else:
                 try: content = raw.decode('utf-8')
                 except: content = f"[Binary File: {len(raw)} bytes]\n(File is not plain text.)"
+
         except Exception as e:
             content = f"Error reading file: {str(e)}"
+            ext = ''
+
+        # Set one-time stream grant so /stream_document can serve the decrypted file
+        grant_key = f'stream_granted_shared_{doc_id}' if is_shared else f'stream_granted_{doc_id}'
+        session[grant_key] = True
+
+        stream_url = f'/stream_shared_document/{doc_id}' if is_shared else f'/stream_document/{doc_id}'
+        file_type  = 'pdf' if ext == 'pdf' else ('image' if ext in ('png','jpg','jpeg','gif','webp') else 'text')
 
         log_access(session['user_id'], 'ACCESS_GRANTED', f'Viewed {filename}', doc_id)
-        return jsonify({'success': True, 'content': content, 'filename': filename, 'is_shared': is_shared})
+        return jsonify({'success': True, 'content': content, 'filename': filename,
+                        'is_shared': is_shared, 'file_type': file_type, 'stream_url': stream_url})
 
     except Exception as e:
         print(f"Access error: {e}")
         return jsonify({'success': False, 'message': 'Server Error'})
 
-# ── Stats / Logs ──────────────────────────────────────────────────────────────
+# -- Document Streaming (decrypted, browser-renderable) -----------------------
+MIME_MAP = {
+    'pdf':  'application/pdf',
+    'png':  'image/png',
+    'jpg':  'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif':  'image/gif',
+    'webp': 'image/webp',
+    'txt':  'text/plain; charset=utf-8',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc':  'application/msword',
+}
+
+def _serve_decrypted(file_path, filename):
+    """Decrypt the file and return a Flask Response with the proper MIME type."""
+    if not os.path.exists(file_path):
+        return jsonify({'success': False, 'message': 'File not found.'}), 404
+    with open(file_path, 'rb') as f:
+        enc = f.read()
+    try:
+        raw = decrypt_file(enc)
+    except Exception:
+        raw = enc  # legacy unencrypted file
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    mime = MIME_MAP.get(ext, 'application/octet-stream')
+    return Response(raw, mimetype=mime,
+                    headers={'Content-Disposition': f'inline; filename="{filename}"'})
+
+@app.route('/stream_document/<int:doc_id>')
+def stream_document(doc_id):
+    """Stream a decrypted owned document. Requires session grant set by verify_document_access."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    # Session grant check — prevents direct-URL bypass without face+OTP
+    if not session.pop(f'stream_granted_{doc_id}', False):
+        return jsonify({'error': 'Access not granted. Complete verification first.'}), 403
+    conn   = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT file_path, original_filename FROM documents WHERE id = ? AND user_id = ?',
+                   (doc_id, session['user_id']))
+    doc = cursor.fetchone()
+    conn.close()
+    if not doc:
+        return jsonify({'error': 'Not found.'}), 404
+    return _serve_decrypted(doc[0], doc[1])
+
+@app.route('/stream_shared_document/<int:doc_id>')
+def stream_shared_document(doc_id):
+    """Stream a decrypted shared document. Requires session grant set by verify_document_access."""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if not session.pop(f'stream_granted_shared_{doc_id}', False):
+        return jsonify({'error': 'Access not granted. Complete verification first.'}), 403
+    conn   = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT d.file_path, d.original_filename
+        FROM shared_documents sd
+        JOIN documents d ON sd.document_id = d.id
+        WHERE sd.document_id = ? AND sd.shared_with_id = ? AND sd.status = 'accepted'
+    ''', (doc_id, session['user_id']))
+    doc = cursor.fetchone()
+    conn.close()
+    if not doc:
+        return jsonify({'error': 'Not found.'}), 404
+    return _serve_decrypted(doc[0], doc[1])
+
+# -- Stats / Logs --------------------------------------------------------------
 @app.route('/get_stats')
 def get_stats():
     if not session.get('logged_in'): return jsonify([])

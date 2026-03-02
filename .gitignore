@@ -21,11 +21,7 @@ __pycache__/
 *$py.class
 *.so
 
-# Environment Variables
 
-.env.local
-.env.production
-.env.staging
 
 # IDE Files
 .vscode/

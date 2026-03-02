@@ -81,9 +81,9 @@
     .auth-wrapper {
         display: flex;
         justify-content: center;
-        align-items: center;
+        align-items: flex-start;
         min-height: calc(100vh - 100px);
-        padding: 2rem 0;
+        padding: 2rem 1rem;
     }
 
     .access-card {
@@ -91,6 +91,12 @@
         max-width: 460px;
         padding: 2.5rem;
         animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* Wide layout when displaying binary docs (PDF / images) */
+    .access-card.wide-viewer {
+        max-width: 98vw;
+        padding: 1.5rem 2rem;
     }
 
     @keyframes slideUp {
@@ -564,7 +570,7 @@
                 if (data.success) {
                     statusEl.innerHTML = '<span style="color:#00ff88">✅ Access Granted! Loading document...</span>';
                     if (stream) stream.getTracks().forEach(t => t.stop());
-                    displayDocumentContent(data.content, data.filename, data.is_shared);
+                    displayDocumentContent(data.content, data.filename, data.is_shared, data.file_type, data.stream_url);
                 } else {
                     faceBtn.disabled = false;
                     faceBtn.innerHTML = '<i class="fas fa-shield-halved"></i> Verify & Open Document';
@@ -580,31 +586,82 @@
             });
     }
 
-    function displayDocumentContent(content, filename, isSharedDoc) {
+    function displayDocumentContent(content, filename, isSharedDoc, fileType, streamUrl) {
         const container = document.querySelector('.access-card');
         const label = isSharedDoc ? ' <span style="color:#00ff88;font-size:0.8rem">(Shared)</span>' : '';
+        const ext = filename.split('.').pop().toLowerCase();
+
+        // Expand card to near-full-width for binary viewers
+        if (fileType === 'pdf' || fileType === 'image') {
+            container.classList.add('wide-viewer');
+        }
+
+        let viewerHtml = '';
+
+        if (fileType === 'pdf') {
+            // Native browser PDF viewer via iframe pointing at decrypted stream
+            viewerHtml = `
+              <div style="margin-top:1.2rem;border:1px solid rgba(0,242,255,0.2);border-radius:12px;overflow:hidden;
+                          box-shadow:0 0 30px rgba(0,242,255,0.08);">
+                <iframe src="${streamUrl}" style="width:100%;height:85vh;border:none;background:#1a1a2e;"
+                        title="${filename}">
+                  <p style="color:#fff;padding:1rem">
+                    Your browser cannot display PDFs inline.
+                    <a href="${streamUrl}" style="color:#00f2ff" download="${filename}">Download the PDF</a> instead.
+                  </p>
+                </iframe>
+              </div>`;
+        } else if (fileType === 'image') {
+            // Image viewer
+            viewerHtml = `
+              <div style="margin-top:1.2rem;text-align:center;padding:1rem;
+                          background:rgba(0,0,0,0.4);border:1px solid rgba(0,242,255,0.15);
+                          border-radius:14px;overflow:hidden;">
+                <img src="${streamUrl}" alt="${filename}"
+                     style="max-width:100%;max-height:70vh;border-radius:10px;
+                            box-shadow:0 0 40px rgba(0,242,255,0.15);object-fit:contain;">
+              </div>`;
+        } else {
+            // Plain text / unknown
+            viewerHtml = `
+              <div style="background:rgba(0,0,0,0.5);border:1px solid rgba(0,242,255,0.15);border-radius:14px;
+                          padding:1.5rem;margin-top:1.5rem;max-height:460px;overflow-y:auto">
+                <pre style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:0.85rem;
+                            color:#e0e0e0;margin:0" id="doc-content-pre">${escapeHtml(content)}</pre>
+              </div>`;
+        }
+
+        // Download button behaviour differs per type
+        const downloadBtn = (fileType === 'pdf' || fileType === 'image')
+            ? `<a href="${streamUrl}" download="${filename}" class="btn btn-primary ripple-btn"
+                  style="flex:1;text-align:center;padding:12px;border-radius:8px;text-decoration:none;">
+                 💾 Download
+               </a>`
+            : `<button onclick="downloadText('${filename}')" class="btn btn-primary ripple-btn" style="flex:1">💾 Download</button>`;
+
         container.innerHTML = `
-      <h2 class="neon-title text-center">📄 ${filename}${label}</h2>
-      <div style="background:rgba(0,0,0,0.5);border:1px solid rgba(0,242,255,0.15);border-radius:14px;
-                  padding:1.5rem;margin-top:1.5rem;max-height:460px;overflow-y:auto">
-        <pre style="white-space:pre-wrap;font-family:'Courier New',monospace;font-size:0.85rem;
-                    color:#e0e0e0;margin:0">${escapeHtml(content)}</pre>
-      </div>
-      <div style="display:flex;gap:1rem;margin-top:1.5rem">
-        <button onclick="downloadDocument('${filename}', document.querySelector('pre').textContent)"
-                class="btn btn-primary ripple-btn" style="flex:1">💾 Download</button>
-        <a href="/dashboard" class="btn btn-ghost" style="flex:1;text-align:center;padding:12px;border-radius:8px;text-decoration:none;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)">← Dashboard</a>
-      </div>
-    `;
+          <h2 class="neon-title text-center">
+            ${fileType === 'pdf' ? '📄' : fileType === 'image' ? '🖼️' : '📃'} ${filename}${label}
+          </h2>
+          ${viewerHtml}
+          <div style="display:flex;gap:1rem;margin-top:1.5rem">
+            ${downloadBtn}
+            <a href="/dashboard" class="btn btn-ghost"
+               style="flex:1;text-align:center;padding:12px;border-radius:8px;text-decoration:none;
+                      color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15)">← Dashboard</a>
+          </div>
+        `;
     }
 
     function escapeHtml(text) {
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    function downloadDocument(filename, content) {
+    function downloadText(filename) {
+        const pre = document.getElementById('doc-content-pre');
+        if (!pre) return;
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+        a.href = URL.createObjectURL(new Blob([pre.textContent], { type: 'text/plain' }));
         a.download = filename;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
