@@ -15,12 +15,17 @@ import requests
 from dotenv import load_dotenv
 import random
 import string
+import re
+import threading
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import make_msgid
 from datetime import datetime, timedelta
 import hashlib
 from cryptography.fernet import Fernet
+import logging
+from logging.handlers import RotatingFileHandler
 
 load_dotenv()
 
@@ -33,6 +38,8 @@ ALLOWED_EXTENSIONS = {'pdf', 'docx', 'doc', 'txt', 'png', 'jpg', 'jpeg', 'gif'}
 MAX_FILE_SIZE  = 16 * 1024 * 1024
 FACE_DB_PATH   = 'face_database'
 MODELS_DIR     = 'models'
+LOGS_DIR       = 'logs'
+MAIL_LOG_FILE  = os.path.join(LOGS_DIR, 'mail_test.log')
 
 # SMTP / Email config
 SMTP_HOST     = os.getenv('SMTP_HOST',     'smtp.gmail.com')
@@ -40,6 +47,14 @@ SMTP_PORT     = int(os.getenv('SMTP_PORT', 587))
 SMTP_USER     = os.getenv('SMTP_USER',     'securedocverify@gmail.com')
 SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'ekpi xbff losj dvnk')
 EMAIL_FROM    = os.getenv('EMAIL_FROM',    'securedocverify@gmail.com')
+SMTP_TIMEOUT  = int(os.getenv('SMTP_TIMEOUT', 15))
+SMTP_USE_TLS  = os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
+SMTP_USE_SSL  = os.getenv('SMTP_USE_SSL', 'false').lower() == 'true'
+FACE_DETECT_SCORE = float(os.getenv('FACE_DETECT_SCORE', 0.75))
+
+# Gmail app passwords are frequently pasted with spaces; normalize safely.
+if 'gmail' in SMTP_HOST.lower():
+    SMTP_PASSWORD = SMTP_PASSWORD.replace(' ', '')
 
 # ── Encryption Key ────────────────────────────────────────────────────────────
 _raw_enc_key = os.getenv('ENCRYPTION_KEY', '')
@@ -58,6 +73,61 @@ os.makedirs(UPLOAD_FOLDER,  exist_ok=True)
 os.makedirs(FACE_DB_PATH,   exist_ok=True)
 os.makedirs(MODELS_DIR,     exist_ok=True)
 os.makedirs('static/temp',  exist_ok=True)
+os.makedirs(LOGS_DIR,       exist_ok=True)
+
+_db_init_lock = threading.Lock()
+_db_ready = False
+
+def ensure_db_ready():
+    """Initialize and migrate DB once, even when app is started via `flask run`."""
+    global _db_ready
+    if _db_ready:
+        return
+    with _db_init_lock:
+        if not _db_ready:
+            init_db()
+            _db_ready = True
+
+@app.before_request
+def _bootstrap_once():
+    ensure_db_ready()
+
+def setup_mail_logger():
+    logger = logging.getLogger('securedoc.mail')
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    if not logger.handlers:
+        handler = RotatingFileHandler(MAIL_LOG_FILE, maxBytes=1_000_000, backupCount=3, encoding='utf-8')
+        formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+def mask_email(email):
+    if not email or '@' not in email:
+        return 'invalid-email'
+    local, domain = email.split('@', 1)
+    if len(local) <= 2:
+        masked_local = local[0] + '*' if local else '*'
+    else:
+        masked_local = local[:2] + '***'
+    return f"{masked_local}@{domain}"
+
+def log_mail_event(event, to_email, purpose, status, error=None, extra=None):
+    target = mask_email(to_email)
+    base = f"event={event} purpose={purpose} status={status} to={target} smtp={SMTP_HOST}:{SMTP_PORT}"
+    if extra:
+        base = f"{base} {extra}"
+    if error:
+        mail_logger.error(f"{base} error={error}")
+    elif status == 'success':
+        mail_logger.info(base)
+    else:
+        mail_logger.warning(base)
+
+mail_logger = setup_mail_logger()
 
 # ── Face Recognition Engine ──────────────────────────────────────────────────
 class FaceEngine:
@@ -74,10 +144,18 @@ class FaceEngine:
 
     def download_models(self):
         models = {
-            self.detector_path:   "https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx?raw=true",
-            self.recognizer_path: "https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx?raw=true"
+            self.detector_path: [
+                "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+                "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+                "https://github.com/opencv/opencv_zoo/blob/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx?raw=true"
+            ],
+            self.recognizer_path: [
+                "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+                "https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+                "https://github.com/opencv/opencv_zoo/blob/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx?raw=true"
+            ]
         }
-        for path, url in models.items():
+        for path, urls in models.items():
             min_size = 2 * 1024 * 1024 if "sface" in path else 200 * 1024
             needs_download = not os.path.exists(path) or os.path.getsize(path) < min_size
             if not needs_download:
@@ -91,19 +169,48 @@ class FaceEngine:
                 except: needs_download = True
             if needs_download:
                 print(f"[INFO] Downloading {os.path.basename(path)}...")
-                try:
-                    r = requests.get(url, allow_redirects=True)
-                    if r.status_code == 200:
-                        with open(path, 'wb') as f: f.write(r.content)
-                        print(f"[OK] Downloaded {os.path.basename(path)}")
-                    else: print(f"[ERROR] Download failed (status {r.status_code})")
-                except Exception as e: print(f"[ERROR] Download error: {e}")
+                downloaded = False
+                headers = {"User-Agent": "SecureDoc-FaceEngine/1.0"}
+                for url in urls:
+                    try:
+                        r = requests.get(url, allow_redirects=True, timeout=(15, 240), headers=headers, stream=True)
+                        if r.status_code != 200:
+                            print(f"[WARN] Download attempt failed ({r.status_code}) from {url}")
+                            continue
+
+                        content = bytearray()
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                content.extend(chunk)
+
+                        if len(content) < min_size:
+                            print(f"[WARN] Download too small ({len(content)} bytes) from {url}")
+                            continue
+
+                        head = content[:512].lower()
+                        if b'<!doctype' in head or b'<html' in head or b'git-lfs' in head:
+                            print(f"[WARN] Invalid model payload from {url}")
+                            continue
+
+                        with open(path, 'wb') as f:
+                            f.write(content)
+                        print(f"[OK] Downloaded {os.path.basename(path)} from {url}")
+                        downloaded = True
+                        break
+                    except Exception as e:
+                        print(f"[WARN] Download error from {url}: {e}")
+
+                if not downloaded:
+                    print(f"[ERROR] Failed to download model: {os.path.basename(path)}")
+
+    def is_ready(self):
+        return self.detector is not None and self.recognizer is not None
 
     def init_models(self):
         try:
             if not os.path.exists(self.detector_path) or not os.path.exists(self.recognizer_path):
                 print(f"[ERROR] Model files missing"); return
-            self.detector   = cv2.FaceDetectorYN.create(self.detector_path, "", (320, 320), 0.9, 0.3, 5000)
+            self.detector   = cv2.FaceDetectorYN.create(self.detector_path, "", (320, 320), FACE_DETECT_SCORE, 0.3, 5000)
             self.recognizer = cv2.FaceRecognizerSF.create(self.recognizer_path, "")
             print("[OK] Face Recognition Models Loaded")
         except Exception as e:
@@ -116,11 +223,34 @@ class FaceEngine:
         try:
             img = cv2.imread(image_path)
             if img is None: return None
-            h, w, _ = img.shape
-            self.detector.setInputSize((w, h))
-            _, faces = self.detector.detect(img)
-            if faces is None or len(faces) == 0: return None
-            aligned = self.recognizer.alignCrop(img, faces[0])
+
+            def _detect_faces(input_img):
+                h, w, _ = input_img.shape
+                self.detector.setInputSize((w, h))
+                _, faces_local = self.detector.detect(input_img)
+                return faces_local
+
+            faces = _detect_faces(img)
+
+            # Fallback: enhance contrast to improve detection under poor lighting.
+            if faces is None or len(faces) == 0:
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                enhanced_gray = clahe.apply(gray)
+                enhanced = cv2.cvtColor(enhanced_gray, cv2.COLOR_GRAY2BGR)
+                faces = _detect_faces(enhanced)
+
+            if faces is None or len(faces) == 0:
+                return None
+
+            # If multiple faces detected, prefer the largest face (closest subject).
+            if len(faces) > 1:
+                areas = [f[2] * f[3] for f in faces]
+                face = faces[int(np.argmax(areas))]
+            else:
+                face = faces[0]
+
+            aligned = self.recognizer.alignCrop(img, face)
             emb = self.recognizer.feature(aligned)
             return emb[0]
         except Exception as e:
@@ -215,6 +345,12 @@ def migrate_db():
             if col not in cols:
                 cursor.execute(f'ALTER TABLE shared_documents ADD COLUMN {col} {defn}')
 
+        # Ensure email and per-share pin columns exist in shared_documents
+        if 'shared_with_email' not in cols:
+            cursor.execute('ALTER TABLE shared_documents ADD COLUMN shared_with_email TEXT')
+        if 'access_pin_hash' not in cols:
+            cursor.execute('ALTER TABLE shared_documents ADD COLUMN access_pin_hash TEXT')
+
         # Ensure file_hash column exists in documents (for existing DBs)
         cursor.execute('PRAGMA table_info(documents)')
         doc_cols = [r[1] for r in cursor.fetchall()]
@@ -269,6 +405,17 @@ def hash_pin(pin):
 
 def verify_pin(pin, hashed):
     return bcrypt.checkpw(pin.encode('utf-8'), hashed)
+
+def hash_share_pin(pin):
+    return bcrypt.hashpw(pin.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_share_pin(pin, pin_hash):
+    if not pin_hash:
+        return False
+    try:
+        return bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8'))
+    except Exception:
+        return False
 
 # ── Document Encryption / Integrity ──────────────────────────────────────────
 def _get_fernet():
@@ -376,22 +523,107 @@ def send_otp_email(to_email, otp, purpose):
     </html>
     """
     try:
+        log_mail_event('otp_send_attempt', to_email, purpose, 'attempt')
+
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"[SecureDoc] Your {title} OTP: {otp}"
         msg['From']    = f"SecureDoc <{EMAIL_FROM}>"
         msg['To']      = to_email
+        msg['Message-ID'] = make_msgid(domain=EMAIL_FROM.split('@')[-1] if '@' in EMAIL_FROM else None)
         msg.attach(MIMEText(html, 'html'))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(EMAIL_FROM, to_email, msg.as_string())
+        refused = {}
+        if SMTP_USE_SSL:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                server.ehlo()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                refused = server.sendmail(EMAIL_FROM, [to_email], msg.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                server.ehlo()
+                if SMTP_USE_TLS:
+                    server.starttls()
+                    server.ehlo()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                refused = server.sendmail(EMAIL_FROM, [to_email], msg.as_string())
+
+        if refused:
+            log_mail_event('otp_send_attempt', to_email, purpose, 'failed', error=f"recipient_refused={refused}")
+            print(f"[ERROR] Recipient refused: {refused}")
+            return False
+
         print(f"[INFO] OTP sent to {to_email} ({purpose})")
+        log_mail_event('otp_send_attempt', to_email, purpose, 'success', extra=f"message_id={msg['Message-ID']}")
         return True
     except Exception as e:
         print(f"[ERROR] Email error: {e}")
+        log_mail_event('otp_send_attempt', to_email, purpose, 'failed', error=repr(e))
         return False
+
+def send_share_notification_email(to_email, owner_username, owner_email, document_name, security_level):
+        """Send recipient notification when a document is shared."""
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;padding:0;background:#f4f8ff;font-family:Inter,Arial,sans-serif;color:#1e293b">
+            <div style="max-width:600px;margin:30px auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+                <div style="padding:24px 28px;background:linear-gradient(90deg,#e0f2fe,#ede9fe);border-bottom:1px solid #dbeafe">
+                    <h2 style="margin:0;color:#0f172a;font-size:1.2rem">📩 New Secure Document Received</h2>
+                    <p style="margin:8px 0 0;color:#475569">You have received a secure document on SecureDoc Vault.</p>
+                </div>
+                <div style="padding:24px 28px">
+                    <p style="margin:0 0 12px">Hello,</p>
+                    <p style="margin:0 0 12px"><strong>{owner_username}</strong> ({owner_email}) has shared a document with you:</p>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin:10px 0 14px">
+                        <div style="font-weight:600;color:#0f172a">📄 {document_name}</div>
+                        <div style="color:#475569;font-size:0.9rem;margin-top:4px">Security level: {security_level.replace('_', ' ').title()}</div>
+                    </div>
+                    <p style="margin:0 0 12px">To access and download this file, please login to your account and enter:</p>
+                    <ul style="margin:0 0 12px 18px;padding:0;color:#334155">
+                        <li>Email OTP verification</li>
+                        <li>Face verification</li>
+                        <li>Share PIN provided by sender</li>
+                    </ul>
+                    <p style="margin:0;color:#64748b;font-size:0.85rem">If you were not expecting this, you can ignore this email.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        try:
+                log_mail_event('share_notify_attempt', to_email, 'share_notify', 'attempt')
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = f"[SecureDoc] {owner_username} shared \"{document_name}\" with you"
+                msg['From'] = f"SecureDoc <{EMAIL_FROM}>"
+                msg['To'] = to_email
+                msg['Message-ID'] = make_msgid(domain=EMAIL_FROM.split('@')[-1] if '@' in EMAIL_FROM else None)
+                msg.attach(MIMEText(html, 'html'))
+
+                refused = {}
+                if SMTP_USE_SSL:
+                        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                                server.ehlo()
+                                server.login(SMTP_USER, SMTP_PASSWORD)
+                                refused = server.sendmail(EMAIL_FROM, [to_email], msg.as_string())
+                else:
+                        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT) as server:
+                                server.ehlo()
+                                if SMTP_USE_TLS:
+                                        server.starttls()
+                                        server.ehlo()
+                                server.login(SMTP_USER, SMTP_PASSWORD)
+                                refused = server.sendmail(EMAIL_FROM, [to_email], msg.as_string())
+
+                if refused:
+                        log_mail_event('share_notify_attempt', to_email, 'share_notify', 'failed', error=f"recipient_refused={refused}")
+                        return False
+
+                log_mail_event('share_notify_attempt', to_email, 'share_notify', 'success', extra=f"message_id={msg['Message-ID']}")
+                return True
+        except Exception as e:
+                log_mail_event('share_notify_attempt', to_email, 'share_notify', 'failed', error=repr(e))
+                return False
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route('/')
@@ -487,6 +719,12 @@ def signup_with_training():
         pin          = data['pin']
         face_images  = data['face_images']
 
+        if not face_engine.is_ready():
+            return jsonify({
+                'success': False,
+                'message': 'Face model not loaded on server. Please restart app after internet is available so models can download.'
+            })
+
         # Require OTP verification for signup
         if not session.get('otp_verified_signup'):
             return jsonify({'success': False, 'message': 'Email OTP verification required before registration.'})
@@ -496,6 +734,7 @@ def signup_with_training():
 
         valid_embeddings = []
         valid_images     = []
+        rejected_count   = 0
 
         print(f"Processing {len(face_images)} training images...")
 
@@ -512,11 +751,16 @@ def signup_with_training():
                     valid_images.append(perm_path)
                 else:
                     os.remove(temp_path)
+                    rejected_count += 1
             except Exception as e:
                 print(f"Image {i} error: {e}")
+                rejected_count += 1
 
         if len(valid_embeddings) < 3:
-            return jsonify({'success': False, 'message': 'Not enough clear face photos. Try again with better lighting.'})
+            return jsonify({
+                'success': False,
+                'message': f'Not enough clear face photos. Accepted {len(valid_embeddings)}/{len(face_images)} frames (rejected {rejected_count}). Try better lighting and keep one face centered in frame.'
+            })
 
         with open(os.path.join(user_face_dir, 'embeddings.json'), 'w') as f:
             json.dump(valid_embeddings, f)
@@ -670,7 +914,7 @@ def dashboard():
     member_id = cursor.fetchone()[0]
 
     cursor.execute('''
-        SELECT sd.*, d.original_filename, d.upload_date, u.username
+        SELECT sd.*, d.original_filename, d.upload_date, u.username, u.email
         FROM shared_documents sd
         JOIN documents d ON sd.document_id = d.id
         JOIN users u ON sd.owner_id = u.id
@@ -679,7 +923,7 @@ def dashboard():
     shared = cursor.fetchall()
 
     cursor.execute('''
-        SELECT sd.*, d.original_filename, d.upload_date, u.username
+        SELECT sd.*, d.original_filename, d.upload_date, u.username, u.email
         FROM shared_documents sd
         JOIN documents d ON sd.document_id = d.id
         JOIN users u ON sd.owner_id = u.id
@@ -741,65 +985,96 @@ def upload_document():
 # ── Share Document (requires OTP) ─────────────────────────────────────────────
 @app.route('/share_document', methods=['POST'])
 def share_document():
-    if not session.get('logged_in'):
-        return jsonify({'success': False, 'message': 'Auth required.'})
+    conn = None
+    try:
+        if not session.get('logged_in'):
+            return jsonify({'success': False, 'message': 'Auth required.'})
 
-    # Require OTP verified for sharing
-    if not session.pop('otp_verified_share', False):
-        return jsonify({'success': False, 'message': 'OTP verification required to share documents.', 'require_otp': True})
+        # Require OTP verified for sharing
+        if not session.pop('otp_verified_share', False):
+            return jsonify({'success': False, 'message': 'OTP verification required to share documents.', 'require_otp': True})
 
-    data   = request.get_json()
-    conn   = sqlite3.connect('users.db')
-    cursor = conn.cursor()
+        ensure_db_ready()
+        data = request.get_json(silent=True) or {}
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
 
-    cursor.execute('SELECT * FROM documents WHERE id = ? AND user_id = ?', (data['document_id'], session['user_id']))
-    if not cursor.fetchone():
-        conn.close()
-        return jsonify({'success': False, 'message': 'Invalid document.'})
+        access_pin = str(data.get('access_pin', '')).strip()
+        if not access_pin or not access_pin.isdigit() or len(access_pin) != 4:
+            return jsonify({'success': False, 'message': 'Share PIN must be exactly 4 digits.'})
+        access_pin_hash = hash_share_pin(access_pin)
 
-    member_ids = data.get('member_ids', [])
-    if data.get('member_id'): member_ids.append(data['member_id'])
-    member_ids = list(set(m for m in member_ids if m))
+        if not data.get('document_id'):
+            return jsonify({'success': False, 'message': 'Document ID missing.'})
 
-    if not member_ids:
-        conn.close()
-        return jsonify({'success': False, 'message': 'No recipients specified.'})
+        cursor.execute('SELECT * FROM documents WHERE id = ? AND user_id = ?', (data['document_id'], session['user_id']))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'message': 'Invalid document.'})
 
-    security_level = data.get('security_level', 'standard')
-    max_views  = -1
-    expires_at = None
-    if security_level == 'confidential':
-        expires_at = datetime.now() + timedelta(hours=24)
-    elif security_level == 'top_secret':
-        max_views  = 1
-        expires_at = datetime.now() + timedelta(hours=1)
+        recipient_emails = data.get('recipient_emails', [])
+        recipient_emails = [str(e).strip().lower() for e in recipient_emails if str(e).strip()]
+        recipient_emails = list(dict.fromkeys(recipient_emails))
 
-    results = {'success': [], 'failed': []}
-    for mid in member_ids:
-        cursor.execute('SELECT id, username FROM users WHERE unique_member_id = ?', (mid,))
-        target = cursor.fetchone()
-        if target:
-            if target[0] == session['user_id']:
-                results['failed'].append(f"{mid} (Self)"); continue
-            cursor.execute('SELECT id FROM shared_documents WHERE document_id = ? AND shared_with_id = ?',
-                           (data['document_id'], target[0]))
-            if cursor.fetchone():
-                results['failed'].append(f"{mid} (Already Shared)"); continue
-            cursor.execute(
-                'INSERT INTO shared_documents (document_id, owner_id, shared_with_id, status, max_views, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-                (data['document_id'], session['user_id'], target[0], 'pending', max_views, expires_at)
-            )
-            results['success'].append(target[1])
-            log_access(session['user_id'], 'SHARE', f'Shared Doc {data["document_id"]} with {target[1]} ({security_level})', data['document_id'])
-        else:
-            results['failed'].append(f"{mid} (Invalid ID)")
+        if not recipient_emails:
+            return jsonify({'success': False, 'message': 'No recipient emails specified.'})
 
-    conn.commit()
-    conn.close()
+        email_regex = r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        invalid_emails = [e for e in recipient_emails if not re.match(email_regex, e)]
+        if invalid_emails:
+            return jsonify({'success': False, 'message': f'Invalid email(s): {", ".join(invalid_emails[:3])}'})
 
-    msg = f"Sent to {len(results['success'])} users."
-    if results['failed']: msg += f" Failed: {', '.join(results['failed'])}"
-    return jsonify({'success': True, 'message': msg, 'details': results})
+        cursor.execute('SELECT username, email FROM users WHERE id = ?', (session['user_id'],))
+        owner_row = cursor.fetchone()
+        owner_username = owner_row[0] if owner_row else session.get('username', 'A user')
+        owner_email = owner_row[1] if owner_row else ''
+
+        cursor.execute('SELECT original_filename FROM documents WHERE id = ? AND user_id = ?', (data['document_id'], session['user_id']))
+        doc_row = cursor.fetchone()
+        doc_name = doc_row[0] if doc_row else f"Document #{data['document_id']}"
+
+        security_level = data.get('security_level', 'standard')
+        max_views  = -1
+        expires_at = None
+        if security_level == 'confidential':
+            expires_at = datetime.now() + timedelta(hours=24)
+        elif security_level == 'top_secret':
+            max_views  = 1
+            expires_at = datetime.now() + timedelta(hours=1)
+
+        results = {'success': [], 'failed': []}
+        for recipient_email in recipient_emails:
+            cursor.execute('SELECT id, username, email FROM users WHERE email = ?', (recipient_email,))
+            target = cursor.fetchone()
+            if target:
+                if target[0] == session['user_id']:
+                    results['failed'].append(f"{recipient_email} (Self)")
+                    continue
+                cursor.execute('SELECT id FROM shared_documents WHERE document_id = ? AND shared_with_id = ?',
+                               (data['document_id'], target[0]))
+                if cursor.fetchone():
+                    results['failed'].append(f"{recipient_email} (Already Shared)")
+                    continue
+                cursor.execute(
+                    'INSERT INTO shared_documents (document_id, owner_id, shared_with_id, shared_with_email, status, max_views, expires_at, access_pin_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    (data['document_id'], session['user_id'], target[0], recipient_email, 'pending', max_views, expires_at, access_pin_hash)
+                )
+                results['success'].append(target[2])
+                log_access(session['user_id'], 'SHARE', f'Shared Doc {data["document_id"]} with {target[2]} ({security_level}, PIN protected)', data['document_id'])
+                send_share_notification_email(target[2], owner_username, owner_email, doc_name, security_level)
+            else:
+                results['failed'].append(f"{recipient_email} (No user with this email)")
+
+        conn.commit()
+        msg = f"Sent to {len(results['success'])} users."
+        if results['failed']:
+            msg += f" Failed: {', '.join(results['failed'])}"
+        return jsonify({'success': True, 'message': msg, 'details': results})
+    except Exception as e:
+        print(f"Share error: {e}")
+        return jsonify({'success': False, 'message': f'Share failed: {str(e)}'})
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/accept_share/<int:share_id>', methods=['POST'])
 def accept_share(share_id):
@@ -842,6 +1117,7 @@ def verify_document_access():
         data       = request.get_json()
         doc_id     = data.get('doc_id')
         is_shared  = data.get('is_shared')
+        share_pin  = str(data.get('share_pin', '')).strip()
         image_data = data.get('image')
         username   = session.get('username')
 
@@ -874,7 +1150,7 @@ def verify_document_access():
         doc = None
         if is_shared:
             cursor.execute('''
-                SELECT d.file_path, d.original_filename, sd.max_views, sd.current_views, sd.expires_at, sd.id
+                SELECT d.file_path, d.original_filename, sd.max_views, sd.current_views, sd.expires_at, sd.id, sd.access_pin_hash
                 FROM shared_documents sd
                 JOIN documents d ON sd.document_id = d.id
                 WHERE sd.document_id = ? AND sd.shared_with_id = ? AND sd.status = 'accepted'
@@ -883,7 +1159,15 @@ def verify_document_access():
             if not info:
                 conn.close()
                 return jsonify({'success': False, 'message': 'Access Revoked.'})
-            file_path, filename, max_views, cur_views, expires_at_str, share_id = info
+            file_path, filename, max_views, cur_views, expires_at_str, share_id, access_pin_hash = info
+
+            if not share_pin or not share_pin.isdigit() or len(share_pin) != 4:
+                conn.close()
+                return jsonify({'success': False, 'message': 'Share PIN is required (4 digits).'})
+            if not verify_share_pin(share_pin, access_pin_hash):
+                conn.close()
+                log_access(session['user_id'], 'ACCESS_DENIED', f'Invalid share PIN for doc {doc_id}', doc_id)
+                return jsonify({'success': False, 'message': 'Invalid share PIN.'})
             if expires_at_str:
                 try: exp = datetime.strptime(expires_at_str, '%Y-%m-%d %H:%M:%S.%f')
                 except: exp = datetime.strptime(expires_at_str, '%Y-%m-%d %H:%M:%S')

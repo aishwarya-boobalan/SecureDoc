@@ -141,7 +141,7 @@
 
     .neon-title {
         font-size: 1.8rem;
-        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -149,7 +149,7 @@
     }
 
     .text-secondary {
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--text-secondary);
         font-size: 0.9rem;
     }
 
@@ -173,8 +173,8 @@
         display: flex;
         justify-content: space-between;
         margin-bottom: 2.5rem;
-        font-size: 0.62rem;
-        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.7rem;
+        color: var(--text-tertiary);
     }
 
     .prog-step {
@@ -261,7 +261,7 @@
         text-align: center;
         margin-bottom: 1.5rem;
         font-size: 1.3rem;
-        background: linear-gradient(90deg, #fff, #00f2ff);
+        background: linear-gradient(90deg, var(--text-primary), var(--primary-color));
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -269,7 +269,7 @@
 
     .hint-text {
         text-align: center;
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--text-secondary);
         margin-bottom: 1.5rem;
         font-size: 0.9rem;
     }
@@ -340,7 +340,7 @@
         font-size: 1.5rem;
         letter-spacing: 0.5rem;
         text-align: center;
-        background: rgba(0, 0, 0, 0.3);
+        background: #f8fafc;
         width: 100%;
     }
 
@@ -373,10 +373,10 @@
 
     .otp-icon {
         font-size: 3.5rem;
-        color: #00f2ff;
+        color: var(--primary-color);
         display: block;
         margin-bottom: 0.8rem;
-        filter: drop-shadow(0 0 10px #00f2ff);
+        filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.6));
     }
 
     .otp-inputs {
@@ -392,22 +392,22 @@
         text-align: center;
         font-size: 1.4rem;
         font-weight: 700;
-        background: rgba(0, 0, 0, 0.4);
-        border: 2px solid rgba(0, 242, 255, 0.25);
+        background: #f8fafc;
+        border: 1px solid var(--glass-border);
         border-radius: 10px;
-        color: #fff;
+        color: var(--text-primary);
         outline: none;
         transition: all 0.2s ease;
     }
 
     .otp-digit:focus {
-        border-color: #00f2ff;
-        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
     }
 
     .otp-digit.filled {
-        border-color: rgba(0, 242, 255, 0.6);
-        background: rgba(0, 242, 255, 0.08);
+        border-color: var(--primary-color);
+        background: #e0edff;
     }
 
     .resend-row {
@@ -421,7 +421,7 @@
     }
 
     .link-highlight {
-        color: #00f2ff;
+        color: var(--primary-color);
         text-decoration: none;
         font-weight: 600;
     }

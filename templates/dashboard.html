@@ -110,7 +110,7 @@
                             <i class="fas fa-eye"></i>
                         </a>
                         <button onclick="showShareModal({{ doc[0] }}, `{{ doc[3] }}`)" class="btn-icon secondary"
-                            title="Group Share">
+                            title="Share by Email">
                             <i class="fas fa-users-cog"></i>
                         </button>
                     </div>
@@ -126,51 +126,53 @@
         </div>
     </div>
 
-    <!-- ── Shared with Me ─────────────────────────── -->
-    {% if shared_documents %}
-    <div class="glass-card mt-4">
-        <h3 class="section-title"><i class="fas fa-share-alt-square"></i> Shared with You</h3>
-        <div class="documents-grid modern-grid">
-            {% for shared in shared_documents %}
-            <div class="doc-item shared">
-                <div class="doc-shimmer"></div>
-                <div class="doc-icon"><i class="fas fa-file-contract"></i></div>
-                <div class="doc-details">
-                    <h4>{{ shared[9] }}</h4>
-                    <span class="meta">From: <span class="highlight-text">@{{ shared[11] }}</span></span>
-                </div>
-                <div class="doc-actions">
-                    <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-neon-small">
-                        Access
-                    </a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+    <!-- ── Received Documents (Lite Panel) ───────────────────────── -->
+    <div class="glass-card mt-4 received-lite-card">
+        <h3 class="section-title lite-title"><i class="fas fa-inbox"></i> Received Documents</h3>
 
-    <!-- ── Pending Requests ───────────────────────── -->
-    {% if pending_shares %}
-    <div class="glass-card mt-4 notification-card">
-        <h3 class="section-title"><i class="fas fa-bell"></i> Pending Requests
-            <span class="badge-count">{{ pending_shares|length }}</span>
-        </h3>
-        {% for pending in pending_shares %}
-        <div class="pending-item">
-            <div class="pending-info">
-                <strong class="highlight-text">@{{ pending[11] }}</strong> wants to share "
-                <em>{{ pending[9] }}</em>"
+        <div class="received-grid">
+            <div class="received-col">
+                <h4 class="received-subtitle">Accepted <span class="badge-count">{{ shared_documents|length }}</span></h4>
+                {% if shared_documents %}
+                <div class="received-list">
+                    {% for shared in shared_documents %}
+                    <div class="received-item">
+                        <div>
+                            <div class="received-name">{{ shared[11] }}</div>
+                            <div class="received-meta">From {{ shared[13] }} · {{ shared[14] }}</div>
+                        </div>
+                        <a href="{{ url_for('access_shared_document', doc_id=shared[1]) }}" class="btn btn-neon-small">Open</a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="received-empty">No accepted shared documents yet.</p>
+                {% endif %}
             </div>
-            <div class="pending-actions">
-                <button onclick="acceptShare({{ pending[0] }})"
-                    class="btn btn-success btn-sm ripple-btn">Accept</button>
-                <button onclick="rejectShare({{ pending[0] }})" class="btn btn-danger btn-sm ripple-btn">Reject</button>
+
+            <div class="received-col">
+                <h4 class="received-subtitle">Pending <span class="badge-count">{{ pending_shares|length }}</span></h4>
+                {% if pending_shares %}
+                <div class="received-list">
+                    {% for pending in pending_shares %}
+                    <div class="received-item pending-received">
+                        <div>
+                            <div class="received-name">{{ pending[11] }}</div>
+                            <div class="received-meta">From {{ pending[13] }} · {{ pending[14] }}</div>
+                        </div>
+                        <div class="pending-actions">
+                            <button onclick="acceptShare({{ pending[0] }})" class="btn btn-success btn-sm ripple-btn">Accept</button>
+                            <button onclick="rejectShare({{ pending[0] }})" class="btn btn-danger btn-sm ripple-btn">Reject</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="received-empty">No pending requests.</p>
+                {% endif %}
             </div>
         </div>
-        {% endfor %}
     </div>
-    {% endif %}
 
     <!-- ── Live Matrix Terminal ────────────────────── -->
     <div class="glass-card mt-4 terminal-card">
@@ -187,17 +189,22 @@
 <div id="shareModal" class="modal">
     <div class="modal-content glass-limit neon-border modal-animate">
         <div class="modal-header">
-            <h3><i class="fas fa-users"></i> Group Sharing</h3>
+            <h3><i class="fas fa-envelope-circle-check"></i> Share via Email</h3>
             <span class="close" onclick="closeShareModal()">&times;</span>
         </div>
         <div class="modal-body">
             <p>Sharing: <strong id="shareDocumentName" class="highlight-text"></strong></p>
             <div class="form-group mt-4">
-                <label>Recipients (Enter Member ID &amp; Press Enter)</label>
+                <label>Recipients (Enter Email &amp; Press Enter)</label>
                 <div class="chip-input-container" id="chipContainer">
-                    <input type="text" id="memberIdInput" placeholder="Add 6-digit ID..." maxlength="6">
+                    <input type="text" id="memberIdInput" placeholder="Add recipient email...">
                 </div>
-                <small class="text-secondary">Press Enter or Space to add. Max 10 users.</small>
+                <small class="text-secondary">Press Enter/Comma to add. Max 10 users.</small>
+            </div>
+            <div class="form-group mt-3">
+                <label>Receiver Share PIN (4 digits)</label>
+                <input type="password" id="shareAccessPin" maxlength="4" pattern="\d{4}" placeholder="Enter 4-digit PIN">
+                <small class="text-secondary">Receiver must enter this PIN to view/download shared files.</small>
             </div>
             <div class="form-group mt-3">
                 <label>Security Level</label>
@@ -270,7 +277,8 @@
 
     body {
         margin: 0;
-        background: #000;
+        background: var(--bg-dark);
+        color: var(--text-primary);
         overflow-x: hidden;
     }
 
@@ -750,6 +758,73 @@
         border-color: rgba(255, 200, 0, 0.15) !important;
     }
 
+    .received-lite-card {
+        background: linear-gradient(180deg, rgba(236, 253, 255, 0.06), rgba(255, 255, 255, 0.04));
+        border: 1px solid rgba(125, 211, 252, 0.25);
+    }
+
+    .lite-title {
+        color: #c7f9ff;
+        text-shadow: none;
+    }
+
+    .received-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .received-col {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 14px;
+        padding: 1rem;
+    }
+
+    .received-subtitle {
+        font-size: 0.95rem;
+        color: #d6f6ff;
+        margin-bottom: 0.7rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .received-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+    }
+
+    .received-item {
+        background: rgba(15, 23, 42, 0.48);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.8rem;
+    }
+
+    .received-name {
+        color: #f8fafc;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .received-meta {
+        color: rgba(226, 232, 240, 0.7);
+        font-size: 0.78rem;
+        margin-top: 0.2rem;
+    }
+
+    .received-empty {
+        color: rgba(226, 232, 240, 0.65);
+        font-size: 0.9rem;
+        margin: 0.4rem 0 0;
+    }
+
     .pending-item {
         display: flex;
         justify-content: space-between;
@@ -1150,9 +1225,124 @@
         overflow: hidden;
     }
 
+    /* ── Lite Theme Overrides ── */
+    :root {
+        --primary-neon: #2563eb;
+        --secondary-neon: #7c3aed;
+        --accent-green: #16a34a;
+        --text-color: #0f172a;
+    }
+
+    body {
+        background: #f4f7ff !important;
+        color: #0f172a;
+    }
+
+    body::before {
+        background: radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.08), transparent 40%),
+            radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.08), transparent 40%);
+    }
+
+    .glass-card,
+    .stat-pill,
+    .doc-item,
+    .received-item,
+    .received-col,
+    .upload-zone,
+    .modal-content {
+        background: rgba(255, 255, 255, 0.88) !important;
+        border-color: rgba(37, 99, 235, 0.15) !important;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08) !important;
+        color: #0f172a;
+    }
+
+    .text-secondary,
+    .doc-date,
+    .file-info,
+    .received-meta,
+    .matrix-line {
+        color: #64748b !important;
+    }
+
+    .section-title,
+    .highlight-text,
+    .modal-header h3,
+    .stat-pill i {
+        color: #2563eb !important;
+        -webkit-text-fill-color: #2563eb !important;
+        text-shadow: none !important;
+    }
+
+    .stat-num,
+    .doc-details h4,
+    .glitch-text,
+    .received-name,
+    .badge-info .value {
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+
+    .btn-neon,
+    .btn-neon-small,
+    .btn-icon,
+    .btn-primary {
+        background: linear-gradient(90deg, #2563eb, #7c3aed) !important;
+        color: #ffffff !important;
+        border-color: transparent !important;
+        box-shadow: 0 10px 18px rgba(37, 99, 235, 0.2) !important;
+    }
+
+    .btn-icon.secondary {
+        background: linear-gradient(90deg, #7c3aed, #2563eb) !important;
+    }
+
+    .chip-input-container,
+    .neon-select,
+    .chip-input-container input,
+    #memberIdInput,
+    #shareAccessPin {
+        background: #f8fafc !important;
+        color: #0f172a !important;
+        border-color: rgba(37, 99, 235, 0.2) !important;
+    }
+
+    .chip {
+        background: rgba(37, 99, 235, 0.1) !important;
+        border-color: rgba(37, 99, 235, 0.35) !important;
+        color: #1e293b !important;
+    }
+
+    .terminal-card,
+    .matrix-terminal {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-color: rgba(37, 99, 235, 0.2) !important;
+        color: #334155 !important;
+    }
+
+    .matrix-line .time {
+        color: #2563eb !important;
+    }
+
+    .matrix-line .user {
+        color: #7c3aed !important;
+    }
+
+    .matrix-line .action {
+        color: #0f172a !important;
+    }
+
+    .terminal-dot {
+        background: #2563eb !important;
+        box-shadow: 0 0 8px rgba(37, 99, 235, 0.5) !important;
+    }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
         .grid-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .received-grid {
             grid-template-columns: 1fr;
         }
 
@@ -1408,6 +1598,7 @@
     let currentShareDocId = null;
     const chipContainer = document.getElementById('chipContainer');
     const memberIdInput = document.getElementById('memberIdInput');
+    const shareAccessPinInput = document.getElementById('shareAccessPin');
     let memberIds = [];
 
     function showShareModal(docId, docName) {
@@ -1415,6 +1606,7 @@
         document.getElementById('shareDocumentName').textContent = docName;
         memberIds = [];
         renderChips();
+        shareAccessPinInput.value = '';
         document.getElementById('shareModal').style.display = 'block';
         memberIdInput.focus();
     }
@@ -1430,7 +1622,7 @@
     };
 
     memberIdInput.addEventListener('keydown', function (event) {
-        if (event.key === 'Enter' || event.key === ' ' || event.key === ',') {
+        if (event.key === 'Enter' || event.key === ',' || event.key === 'Tab') {
             event.preventDefault();
             const val = this.value.trim();
             if (val) { addMemberId(val); this.value = ''; }
@@ -1439,11 +1631,16 @@
         }
     });
 
+    shareAccessPinInput.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 4);
+    });
+
     function addMemberId(id) {
-        if (!/^\d{6}$/.test(id)) { Toast.show('Member ID must be exactly 6 digits.', 'error'); return; }
-        if (memberIds.includes(id)) { Toast.show('ID already added.', 'warning'); return; }
+        const email = id.toLowerCase();
+        if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) { Toast.show('Enter a valid email address.', 'error'); return; }
+        if (memberIds.includes(email)) { Toast.show('Email already added.', 'warning'); return; }
         if (memberIds.length >= 10) { Toast.show('Max 10 recipients allowed.', 'warning'); return; }
-        memberIds.push(id);
+        memberIds.push(email);
         renderChips();
     }
 
@@ -1461,15 +1658,19 @@
 
     async function shareDocument() {
         const currentInput = memberIdInput.value.trim();
-        if (currentInput && /^\d{6}$/.test(currentInput) && !memberIds.includes(currentInput)) {
-            memberIds.push(currentInput); memberIdInput.value = '';
+        const currentEmail = currentInput.toLowerCase();
+        if (currentInput && /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(currentInput) && !memberIds.includes(currentEmail)) {
+            memberIds.push(currentEmail); memberIdInput.value = '';
         }
-        if (memberIds.length === 0) { Toast.show('Please add at least one Member ID.', 'error'); return; }
+        if (memberIds.length === 0) { Toast.show('Please add at least one recipient email.', 'error'); return; }
+        const accessPin = shareAccessPinInput.value.trim();
+        if (!/^\d{4}$/.test(accessPin)) { Toast.show('Share PIN must be exactly 4 digits.', 'error'); return; }
 
         // Close share modal, open OTP modal first
         const docData = {
             document_id: currentShareDocId,
-            member_ids: memberIds,
+            recipient_emails: memberIds,
+            access_pin: accessPin,
             security_level: document.getElementById('securityLevel').value
         };
         closeShareModal();

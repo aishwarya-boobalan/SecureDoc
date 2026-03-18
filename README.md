@@ -45,6 +45,7 @@ A state-of-the-art secure document sharing platform featuring military-grade acc
 
 -   **Panic PIN**: The default Panic PIN is `0000`. Use this to test the **Duress Mode**.
 -   **Logs**: Watch the bottom green terminal for live system events.
+-   **Mail Testing Log**: OTP mail attempts are now written to `logs/mail_test.log` with success/failure status and error details (emails are masked).
 -   **3D Effect**: Move your mouse over cards to see the premium depth effect.
 
 ---

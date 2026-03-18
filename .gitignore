@@ -2,7 +2,7 @@
 venv/
 env/
 .venv/
-
+.env
 
 # User Data and Uploads
 uploads/

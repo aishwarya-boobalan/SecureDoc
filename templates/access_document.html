@@ -55,6 +55,13 @@
         <div class="acc-pane pane-2">
             <h3><i class="fas fa-camera"></i> Face Verification</h3>
             <p class="hint-text">Look directly at the camera with good lighting.</p>
+            {% if is_shared %}
+            <div class="form-group" style="margin-bottom:1rem">
+                <label style="color:rgba(255,255,255,0.7);font-size:0.85rem">Share PIN (4 digits)</label>
+                <input id="share-pin" type="password" maxlength="4" pattern="\d{4}" placeholder="Enter sender PIN"
+                    style="width:100%;padding:0.8rem;background:rgba(0,0,0,0.35);border:1px solid rgba(0,242,255,0.25);border-radius:10px;color:#fff;outline:none">
+            </div>
+            {% endif %}
             <div class="camera-wrapper">
                 <video id="video" autoplay muted playsinline></video>
                 <canvas id="canvas" style="display:none"></canvas>
@@ -113,7 +120,7 @@
 
     .neon-title {
         font-size: 1.6rem;
-        background: linear-gradient(90deg, #00f2ff, #bd00ff);
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -407,6 +414,62 @@
     .link-highlight:hover {
         text-decoration: underline;
     }
+
+    /* Lite theme polish */
+    body {
+        background: #f4f7ff !important;
+        color: #0f172a;
+    }
+
+    .access-card {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border: 1px solid rgba(37, 99, 235, 0.16);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .text-secondary,
+    .hint-text {
+        color: #64748b !important;
+    }
+
+    .acc-step {
+        background: rgba(37, 99, 235, 0.08);
+        border-color: rgba(37, 99, 235, 0.2);
+        color: #2563eb;
+    }
+
+    .acc-step.active {
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: #fff;
+        box-shadow: 0 0 16px rgba(37, 99, 235, 0.35);
+    }
+
+    .acc-step.done {
+        background: rgba(22, 163, 74, 0.12);
+        color: #16a34a;
+        border-color: #16a34a;
+    }
+
+    .acc-line {
+        background: rgba(37, 99, 235, 0.12);
+    }
+
+    .acc-line.filled::after {
+        background: linear-gradient(90deg, #2563eb, #7c3aed);
+    }
+
+    .otp-digit,
+    #share-pin {
+        background: #f8fafc !important;
+        color: #0f172a !important;
+        border-color: rgba(37, 99, 235, 0.25) !important;
+    }
+
+    .otp-digit:focus,
+    #share-pin:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14) !important;
+    }
 </style>
 {% endblock %}
 
@@ -416,6 +479,13 @@
     const isShared = {{ 'true' if is_shared else 'false' }};
     let stream;
     let resendTimer;
+
+    const sharePinInput = document.getElementById('share-pin');
+    if (sharePinInput) {
+        sharePinInput.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '').slice(0, 4);
+        });
+    }
 
     // ── OTP digit wiring ──────────────────────────────────────────────────────
     document.querySelectorAll('.otp-digit').forEach((input, i, all) => {
@@ -549,8 +619,13 @@
         const scanLine = document.querySelector('.scan-line');
         const faceBtn = document.getElementById('face-btn');
         const statusEl = document.getElementById('access-status');
+        const sharePin = isShared ? (sharePinInput?.value || '').trim() : '';
 
         if (!stream) { Toast.show('Camera not started.', 'error'); return; }
+        if (isShared && !/^\d{4}$/.test(sharePin)) {
+            Toast.show('Enter the 4-digit share PIN.', 'error');
+            return;
+        }
 
         canvas.width = video.videoWidth; canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
@@ -562,7 +637,12 @@
         fetch('/verify_document_access', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ doc_id: docId, image: canvas.toDataURL('image/jpeg', 0.95), is_shared: isShared })
+            body: JSON.stringify({
+                doc_id: docId,
+                image: canvas.toDataURL('image/jpeg', 0.95),
+                is_shared: isShared,
+                share_pin: sharePin
+            })
         })
             .then(r => r.json())
             .then(data => {
