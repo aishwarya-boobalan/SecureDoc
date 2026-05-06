@@ -1,6 +1,7 @@
 # SecureDoc - Advanced Face Auth Document Vault
 
-A state-of-the-art secure document sharing platform featuring military-grade access control, biometric authentication, and a next-gen futuristic UI.
+SecureDoc is an advanced secure document sharing platform developed with face authentication and encrypted access control to ensure safe document storage and sharing. The system uses AI-based biometric verification, secure cloud storage, and role-based access management to protect confidential files from unauthorized access. Built with modern web technologies and a futuristic user interface, the project focuses on enhancing digital document security and providing a seamless user experience.
+
 
 ## 🚀 Key Features
 
