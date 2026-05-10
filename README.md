@@ -27,6 +27,34 @@ SecureDoc is an advanced secure document sharing platform developed with face au
 -   **AI/ML**: DeepFace (TensorFlow/Keras backend) for Face Verification.
 -   **Database**: SQLite (Zero-config, fast relational data)
 
+## 9.2 SAMPLE SCREENSHOTS
+
+### Figure 7.1: Home Page
+![Home Page](screenshots/Picture1.jpg)
+
+---
+
+### Figure 7.2: SignUp Page
+![SignUp Page](screenshots/Picture2.jpg)
+
+---
+
+### Figure 7.3: 3 Step Login Pages
+
+#### Step 1
+![Login Step 1](screenshots/Picture3.jpg)
+
+#### Step 2
+![Login Step 2](screenshots/Picture4.jpg)
+
+#### Step 3
+![Login Step 3](screenshots/Picture5.jpg)
+
+---
+
+### Figure 7.4: Documents Handling Page
+![Documents Handling](screenshots/Picture6.jpg)
+
 ## ⚡ Quick Start
 
 1.  **Install Dependencies**
